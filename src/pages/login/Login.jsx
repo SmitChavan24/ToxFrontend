@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { GoogleLogin, } from '@react-oauth/google';
-import Logo from '../../assets/images/ToXlogo.png'
+import Logo from '../../assets/images/ToXLogo.png'
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom'
 
