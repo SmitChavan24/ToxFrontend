@@ -1,7 +1,7 @@
 import React from 'react'
 import Chat from '../../assets/images/map.jpg'
 import Mapp from '../../assets/images/chat.jpg'
-import Logo from '../../assets/images/ToXlogo.png'
+import Logo from '../../assets/images/ToXLogo.png'
 import { useNavigate } from 'react-router-dom'
 const LandingPage = () => {
     const navigate = useNavigate();
