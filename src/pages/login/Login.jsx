@@ -33,7 +33,19 @@ const Login = () => {
                     "Content-Type": "application/json"
                 }
             })
-        console.log(response, "responsee")
+
+        if (response.data.payload) {
+            const response2 = await axios.post('http://localhost:3000/register/', response.data.payload
+                ,
+                {
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                })
+
+            console.log(response2, "rererer")
+        }
+
     }
 
     return (

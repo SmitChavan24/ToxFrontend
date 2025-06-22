@@ -1,10 +1,16 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-// import { ChevronDownIcon } from '@heroicons/react/16/solid'
-// import { Field, Label, Switch } from '@headlessui/react'
+import { Calendar as CalendarIcon } from "lucide-react"
+import { Calendar } from '../../components/ui/calendar'
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "../../components/ui/popover"
+import { Button } from "../../components/ui/button"
 
 const Register = () => {
-
+    const [date, setDate] = useState()
     const navigate = useNavigate();
 
     return (
@@ -60,13 +66,21 @@ const Register = () => {
                             Date of birth
                         </label>
                         <div className="mt-2.5">
-                            <input
-                                id="company"
-                                name="company"
-                                type="text"
-                                autoComplete="organization"
-                                className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
-                            />
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        data-empty={!date}
+                                        className="data-[empty=true]:text-muted-foreground w-[280px] justify-start text-left font-normal"
+                                    >
+                                        <CalendarIcon />
+                                        {date ? format(date, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={date} onSelect={(date) => setDate(date)} />
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     </div>
                     <div className="sm:col-span-2">
