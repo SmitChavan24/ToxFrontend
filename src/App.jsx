@@ -5,9 +5,9 @@ import Login from './pages/login/Login'
 import Register from './pages/register/Register'
 import Captureface from './pages/register/Captureface'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
-import socketIO from 'socket.io-client';
 import ChatPage from './pages/chat/ChatPage'
-// import socket from './utils/socket/socketserver'
+import FaceCapture from './pages/landing/FaceCapture'
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,6 +19,7 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -28,6 +29,7 @@ const App = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/captureface" element={<Captureface />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/facecapture" element={<FaceCapture />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
