@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Chat from '../../assets/images/map.jpg'
 import Mapp from '../../assets/images/chat.jpg'
 import Logo from '../../assets/images/ToXLogo.png'
@@ -7,7 +7,22 @@ import { useNavigate } from 'react-router-dom'
 
 const LandingPage = () => {
     const navigate = useNavigate();
+    const [darkMode, setDarkMode] = useState(false);
 
+    // Apply or remove 'dark' class on <html>
+    useEffect(() => {
+        if (darkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    }, [darkMode]);
+
+    const Notify = () => {
+
+        const text = `HEY! Your tasks is now overdue.`;
+        const notification = new Notification("To do list", { body: text });
+    }
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-300">
             {/* Navbar */}
@@ -28,10 +43,20 @@ const LandingPage = () => {
                     <button className="px-4 py-2 text-lg font-medium text-gray-700  hover:bg-gray-100 rounded-b-2xl transition" onClick={() => navigate('/login')}>
                         Login
                     </button>
-
                 </div>
             </nav >
-
+            <button
+                onClick={Notify}
+                className="bg-gray-200 dark:bg-gray-700 text-black dark:text-white px-4 py-2 rounded-lg shadow transition"
+            >
+                Notify
+            </button>
+            <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="bg-gray-200 dark:bg-gray-700 text-black dark:text-white px-4 py-2 rounded-lg shadow transition"
+            >
+                {darkMode ? 'Light Mode' : 'Dark Mode'}
+            </button>
             {/* Main Content */}
             <div className="flex flex-col-reverse md:flex-row items-center justify-between min-h-[calc(100vh-64px)] px-6 py-8 gap-8 text-center" >
 
@@ -50,7 +75,7 @@ const LandingPage = () => {
                 {/* Text Section */}
                 <div className="w-full md:w-1/3" >
                     <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-gray-900">
-                        Tox
+                        INSTANT INSANE TALKS
                     </h1>
                     <p className="mt-4 text-lg sm:text-xl md:text-2xl text-gray-600 italic">
                         Seamless global messaging — stay connected wherever you are.

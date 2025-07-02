@@ -3,10 +3,28 @@ import { GoogleLogin, } from '@react-oauth/google';
 import Logo from '../../assets/images/ToXLogo.png'
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form';
+import { yupResolver } from "@hookform/resolvers/yup"
+import * as yup from "yup"
 
 const Login = () => {
     const [user, setUser] = useState('')
     const navigate = useNavigate();
+
+    const schema = yup.object().shape({
+        email: yup
+            .string()
+            .email('Must be a valid email')
+            .required('Email is required'),
+        password: yup.string().required('Password is required').min(6),
+    });
+    const {
+        register,
+        handleSubmit,
+        watch,
+        setValue,
+        formState: { errors },
+    } = useForm({ defaultValues: {}, resolver: yupResolver(schema) });
 
     useEffect(() => {
         const apicall = async () => {
@@ -48,6 +66,11 @@ const Login = () => {
 
     }
 
+    const Login = async (data) => {
+        const response = await axios.post('http://localhost:3000/login/', data)
+        console.log(response, "login")
+    }
+
     return (
         <>
             <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
@@ -63,7 +86,7 @@ const Login = () => {
                 </div>
 
                 <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                    <form onSubmit={() => navigate('/captureface')} className="space-y-6">
+                    <form onSubmit={handleSubmit(Login)} className="space-y-6">
                         <div>
                             <label htmlFor="email" className="block text-sm/6 font-medium text-gray-900">
                                 Email address
@@ -74,6 +97,7 @@ const Login = () => {
                                     name="email"
                                     type="email"
                                     required
+                                    {...register("email", { required: true })}
                                     autoComplete="email"
                                     className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
                                 />
@@ -96,6 +120,7 @@ const Login = () => {
                                     id="password"
                                     name="password"
                                     type="password"
+                                    {...register("password", { required: true })}
                                     required
                                     autoComplete="current-password"
                                     className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
@@ -113,15 +138,16 @@ const Login = () => {
                         </div>
                     </form>
 
-                    <p className="mt-10 text-center text-sm/6 justify-items-center text-gray-500">
-                        Login with Google{' '}
+                    <div className="mt-10 text-center text-sm/6 justify-items-center text-gray-500">
+
+
                         <GoogleLogin
                             onSuccess={GoogleDecode}
                             onError={() => {
                                 console.log('Login Failed');
                             }}
                         />
-                    </p>
+                    </div>
                     <p className="mt-10 text-center text-sm/6 text-gray-500">
                         Not a member?{' '}
                         <button

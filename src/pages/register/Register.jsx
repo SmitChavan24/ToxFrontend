@@ -2,16 +2,110 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Calendar as CalendarIcon } from "lucide-react"
 import { Calendar } from '../../components/ui/calendar'
+import Logo from '../../assets/images/ToXLogo.png'
+import { yupResolver } from "@hookform/resolvers/yup"
+import * as yup from "yup"
+import { useForm } from 'react-hook-form'
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from "../../components/ui/popover"
 import { Button } from "../../components/ui/button"
+import Confirmpassword from '../../screens/components/confirmpassword'
+import axios from 'axios'
 
 const Register = () => {
-    const [date, setDate] = useState()
     const navigate = useNavigate();
+    const [step, setStep] = useState(1);
+    const [showCalendar, setShowCalendar] = useState(false);
+    const [apiError, setApiError] = useState('')
+    const stepOneSchema = yup.object().shape({
+        firstname: yup
+            .string()
+            .required('First name is required')
+            .min(2, 'First name must be at least 2 characters'),
+        lastname: yup
+            .string()
+            .required('Last name is required')
+            .min(2, 'Last name must be at least 2 characters'),
+        dateofbirth: yup
+            .date()
+            .typeError('Please enter a valid date')
+            .required('Date of birth is required')
+            .max(new Date(), 'Date of birth cannot be in the future')
+            .test(
+                'age',
+                'You must be at least 5 years old',
+                function (value) {
+                    if (!value) return false;
+                    const today = new Date();
+                    const birthDate = new Date(value);
+                    const age = today.getFullYear() - birthDate.getFullYear();
+                    const m = today.getMonth() - birthDate.getMonth();
+                    return (
+                        age > 5 || (age === 5 && m >= 0 && today.getDate() >= birthDate.getDate())
+                    );
+                }
+            ),
+        email: yup
+            .string()
+            .email('Must be a valid email')
+            .required('Email is required'),
+        gender: yup
+            .string()
+            .oneOf(['Male', 'Female', 'Other'], 'Select a valid gender')
+            .required('Gender is required'),
+    });
+
+    const stepTwoSchema = yup.object().shape({
+        password: yup.string().required('Password is required').min(6),
+        confirmpassword: yup.string()
+            .oneOf([yup.ref('password'), null], 'Passwords must match')
+            .required('Confirm your password'),
+    });
+
+    const isStepOne = step === 1;
+
+    const schema = isStepOne ? stepOneSchema : stepTwoSchema;
+
+    const {
+        register,
+        handleSubmit,
+        watch,
+        setValue,
+        formState: { errors },
+    } = useForm({ defaultValues: { createddate: new Date() }, resolver: yupResolver(schema) });
+
+    const selectedDate = watch('dateofbirth');
+
+    const onSubmit = async (data) => {
+        if (isStepOne) {
+            setStep(2); // proceed to step 2 if step 1 is valid
+        } else {
+            // console.log('Final Submission', data);
+            try {
+                const response2 = await axios.post('http://localhost:3000/register/', data
+                    ,
+                    {
+                        headers: {
+                            "Content-Type": "application/json"
+                        }
+                    })
+                console.log(response2.data.message)
+                if (response2.data.message) {
+                    navigate('/login');
+                }
+            } catch (error) {
+                if (error?.response?.data?.error) {
+                    setApiError(error.response.data.error)
+                    console.log(error.response.data.error, "error")
+                }
+            }
+
+
+        }
+    }
 
     return (
         <div className="isolate bg-white px-6 py-24 sm:py-32 lg:px-8">
@@ -28,11 +122,20 @@ const Register = () => {
                 />
             </div>
             <div className="mx-auto max-w-2xl text-center">
-                <h2 className="text-4xl font-semibold tracking-tight text-balance text-gray-900 sm:text-5xl">Sign Up</h2>
-                <p className="mt-2 text-lg/8 text-gray-600">Start your exciting journey by filling this out</p>
+                <img
+                    alt="Your Company"
+                    src={Logo}
+                    className="mx-auto h-10 w-auto"
+                />
+
+
+                {!isStepOne ? <p className="mt-2 text-lg/8 text-gray-600"> {`Please keep your password saved or you will lose your account`}</p> : <p className="mt-2 text-lg/8 text-gray-600">Start your exciting journey by filling this out</p>}
+
             </div>
-            <form onSubmit={() => navigate('/captureface')} className="mx-auto mt-16 max-w-xl sm:mt-20">
-                <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
+            {/* <form onSubmit={() => navigate('/captureface')} className="mx-auto mt-16 max-w-xl sm:mt-20"> */}
+            {/* <form onSubmit={handleSubmit(onSubmit)} className="mx-auto mt-16 max-w-xl sm:mt-20"> */}
+            <form onSubmit={handleSubmit(onSubmit)} className="mx-auto mt-16 max-w-xl sm:mt-20">
+                {isStepOne ? <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
                     <div>
                         <label htmlFor="first-name" className="block text-sm/6 font-semibold text-gray-900">
                             First name
@@ -42,9 +145,11 @@ const Register = () => {
                                 id="first-name"
                                 name="first-name"
                                 type="text"
+                                {...register("firstname", { required: true })}
                                 autoComplete="given-name"
                                 className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
                             />
+                            <p className="mt-1 text-center text-sm text-red-600">{errors.firstname?.message}</p>
                         </div>
                     </div>
                     <div>
@@ -56,9 +161,11 @@ const Register = () => {
                                 id="last-name"
                                 name="last-name"
                                 type="text"
+                                {...register("lastname", { required: true })}
                                 autoComplete="family-name"
                                 className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
                             />
+                            <p className="mt-1 text-center text-sm text-red-600">{errors.lastname?.message}</p>
                         </div>
                     </div>
                     <div className="sm:col-span-2">
@@ -66,21 +173,27 @@ const Register = () => {
                             Date of birth
                         </label>
                         <div className="mt-2.5">
-                            <Popover>
+                            <Popover open={showCalendar} onOpenChange={setShowCalendar}>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
-                                        data-empty={!date}
-                                        className="data-[empty=true]:text-muted-foreground w-[280px] justify-start text-left font-normal"
+                                        onClick={() => setShowCalendar(true)}
+                                        className="data-[empty=true]:text-muted-foreground w-full justify-start text-left font-normal"
+
                                     >
                                         <CalendarIcon />
-                                        {date ? format(date, "PPP") : <span>Pick a date</span>}
+                                        {selectedDate ? selectedDate.toLocaleDateString() : <span>Pick a date</span>}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={date} onSelect={(date) => setDate(date)} />
+                                    <Calendar mode="single"
+                                        captionLayout="dropdown"
+                                        selected={selectedDate}
+                                        onSelect={(date) => { setValue('dateofbirth', date, { shouldValidate: true }); setShowCalendar(false); }}
+                                    />
                                 </PopoverContent>
                             </Popover>
+                            <p className="mt-1 text-center text-sm text-red-600">{errors.dateofbirth?.message}</p>
                         </div>
                     </div>
                     <div className="sm:col-span-2">
@@ -90,11 +203,12 @@ const Register = () => {
                         <div className="mt-2.5">
                             <input
                                 id="email"
-                                name="email"
                                 type="email"
                                 autoComplete="email"
+                                {...register("email", { required: true })}
                                 className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
                             />
+                            <p className="mt-1 text-center text-sm text-red-600">{errors.email?.message}</p>
                         </div>
                     </div>
                     <div className="sm:col-span-2">
@@ -102,49 +216,19 @@ const Register = () => {
                             Gender
                         </label>
                         <select
-                            id="country"
-                            name="country"
-                            autoComplete="country"
-                            aria-label="Country"
+                            id="gender"
+                            name="gender"
+                            autoComplete="gender"
+                            {...register("gender", { required: true })}
+                            aria-label="Gender"
                             className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"                        >
                             <option>Male</option>
                             <option>Female</option>
                             <option>Other</option>
                         </select>
+                        <p className="mt-1 text-center text-sm text-red-600">{errors.gender?.message}</p>
                     </div>
-                    <div className="sm:col-span-2">
-                        <label htmlFor="phone-number" className="block text-sm/6 font-semibold text-gray-900">
-                            Phone number
-                        </label>
-                        <div className="mt-2.5">
-                            <div className="flex rounded-md bg-white outline-1 -outline-offset-1 outline-gray-300 has-[input:focus-within]:outline-2 has-[input:focus-within]:-outline-offset-2 has-[input:focus-within]:outline-indigo-600">
-                                <div className="grid shrink-0 grid-cols-1 focus-within:relative">
-                                    <select
-                                        id="country"
-                                        name="country"
-                                        autoComplete="country"
-                                        aria-label="Country"
-                                        className="col-start-1 row-start-1 w-full appearance-none rounded-md py-2 pr-7 pl-3.5 text-base text-gray-500 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                                    >
-                                        <option>US</option>
-                                        <option>CA</option>
-                                        <option>EU</option>
-                                    </select>
-                                    {/* <ChevronDownIcon
-                                        aria-hidden="true"
-                                        className="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-500 sm:size-4"
-                                    /> */}
-                                </div>
-                                <input
-                                    id="phone-number"
-                                    name="phone-number"
-                                    type="text"
-                                    placeholder="123-456-7890"
-                                    className="block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6"
-                                />
-                            </div>
-                        </div>
-                    </div>
+
 
                     {/* <Field className="flex gap-x-4 sm:col-span-2">
                         <div className="flex h-6 items-center">
@@ -168,14 +252,21 @@ const Register = () => {
                             .
                         </Label>
                     </Field> */}
-                </div>
+                </div> : <Confirmpassword register={register} errors={errors} apiError={apiError} />}
                 <div className="mt-10">
+                    <p className="mt-1 text-center text-sm text-red-600">{apiError}</p>
                     <button
                         type="submit"
                         className="block w-full rounded-md bg-indigo-600 px-3.5 py-2.5 text-center text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                     >
-                        Let's Move Ahead
+                        {isStepOne ? "Next" : "Register"}
                     </button>
+                    {!isStepOne && <button
+                        onClick={() => { setStep(1); setApiError('') }}
+                        className="block w-full rounded-md mt-20 bg-fuchsia-600 px-3.5 py-2.5 text-center text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                    >
+                        Go Back
+                    </button>}
                 </div>
             </form>
         </div>

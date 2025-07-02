@@ -19,7 +19,9 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-
+  Notification.requestPermission((result) => {
+    console.log(result);
+  });
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
