@@ -11,6 +11,13 @@ const LandingPage = () => {
 
     // Apply or remove 'dark' class on <html>
     useEffect(() => {
+        const userinfo = localStorage.getItem('UserInfo')
+        if (userinfo) {
+            navigate('/chat')
+        }
+    }, [])
+
+    useEffect(() => {
         if (darkMode) {
             document.documentElement.classList.add('dark');
         } else {

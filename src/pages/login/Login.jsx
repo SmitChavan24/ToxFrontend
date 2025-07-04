@@ -6,11 +6,12 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form';
 import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup"
+import { useAuth } from '../../context/Authcontext';
 
 const Login = () => {
     const [user, setUser] = useState('')
     const navigate = useNavigate();
-
+    const { setUserInfo } = useAuth()
     const schema = yup.object().shape({
         email: yup
             .string()
@@ -53,7 +54,7 @@ const Login = () => {
             })
 
         if (response.data.payload) {
-            const response2 = await axios.post('http://localhost:3000/register/', response.data.payload
+            const response2 = await axios.post('http://localhost:3000/gsignin/', response.data.payload
                 ,
                 {
                     headers: {
@@ -61,14 +62,25 @@ const Login = () => {
                     }
                 })
 
-            console.log(response2, "rererer")
+
+            if (response2.data.message == "Login successful") {
+                console.log(response2.data)
+                localStorage.setItem('UserInfo', JSON.stringify(response2.data))
+                navigate('/chat')
+            }
         }
 
     }
 
     const Login = async (data) => {
         const response = await axios.post('http://localhost:3000/login/', data)
-        console.log(response, "login")
+
+        if (response.data.message == "Login successful") {
+
+            localStorage.setItem('UserInfo', JSON.stringify(response.data))
+            setUserInfo(response.data)
+            navigate('/chat')
+        }
     }
 
     return (
