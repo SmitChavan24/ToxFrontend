@@ -36,12 +36,14 @@ const ChatPage = ({ }) => {
     // useEffect(() => {
     //     socket.on("messageResponse", (data) => setMessages([...messages, data]));
     // }, [socket, messages]);
+
     useEffect(() => {
         socket.once("connect", () => {
             console.log("Connected to socket server!");
 
         });
-        // Listen when another user comes online
+
+        // Listen when another user comes online    
         socket.on("online", (userId) => {
             const updatedHistory = history.map(user => {
                 if (user.id === userId) {
@@ -58,6 +60,7 @@ const ChatPage = ({ }) => {
             Notify(userId, "Online")
             // Update UI to show online status
         });
+
         // Listen when a user goes offline
         socket.on("offline", (userId) => {
             const updatedHistory = history.map(user => {
@@ -76,7 +79,11 @@ const ChatPage = ({ }) => {
             Notify(userId, "Offline")
         });
 
-    }, [])
+        return () => {
+            socket.off("online");
+            socket.off("offline");
+        };
+    }, [history])
 
     // console.log(browserSupportsSpeechRecognition)
     if (!browserSupportsSpeechRecognition) {
@@ -117,6 +124,7 @@ const ChatPage = ({ }) => {
             console.error('Failed to fetch users:', err);
         }
     };
+
     const handleSendMessage = (e) => {
         // e.preventDefault();
         console.log(message)
@@ -129,7 +137,7 @@ const ChatPage = ({ }) => {
 
         setMessage("");
     };
-    console.log(history)
+
     const SetHistory = async (user) => {
         setUsersData([])
         setSelectedUser(user);
@@ -204,11 +212,19 @@ const ChatPage = ({ }) => {
                         {history.map((user) => (<div
                             key={user?.id}
                             onClick={() => setSelectedUser(user)}
-                            className={`p-3 mb-2 rounded-lg cursor-pointer hover:bg-gray-100 ${selectedUser?.id === user?.id ? 'bg-gray-200' : ''
+                            className={`flex justify-between items-center p-3 mb-2 rounded-lg cursor-pointer hover:bg-gray-100 ${selectedUser?.id === user?.id ? 'bg-gray-200' : ''
                                 }`}
                         >
-                            <h3 className="font-semibold">{user?.name}</h3>
-                            <h3 className="font-semibold">{user?.status}</h3>
+                            <div>
+                                <h3 className="font-semibold">{user?.name}</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className={`h-3 w-3 rounded-full ${user?.status === 'online' ? 'bg-green-500' : 'bg-gray-400'
+                                        }`}
+                                ></span>
+                                {/* <span className="text-sm font-medium capitalize">{user?.status}</span> */}
+                            </div>
                         </div>))}
                     </div>
                 </div>
