@@ -1,4 +1,4 @@
-import React, { use, useEffect, useState } from "react";
+import React, { use, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import {
     Card,
@@ -11,20 +11,24 @@ import Profile from '../../assets/images/profile.png'
 import { useAuth } from "../../context/Authcontext";
 import { User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { socket } from "../../utils/socket/socketserver";
+import useAuthStore from "../../../store/store";
+// import { socket } from "../../utils/socket/socketserver";
 const env = await import.meta.env;
 
 
 
 const ChatPage = ({ }) => {
     const navigate = useNavigate()
-    const { userInfo, history, setHistory } = useAuth()
+    // const { userInfo, history, setHistory } = useAuth()
+    const { userInfo, history, setUserInfo, setHistory } = useAuthStore();
     const [message, setMessage] = useState("");
     const [search, setSearch] = useState('');
     const [selectedUser, setSelectedUser] = useState(null);
     const [usersData, setUsersData] = useState([])
     const [messages, setMessages] = useState([]);
     const [newMsg, setNewMsg] = useState('');
+    const historyRef = useRef(history);
+
     const {
         transcript,
         listening,
@@ -32,60 +36,57 @@ const ChatPage = ({ }) => {
         browserSupportsSpeechRecognition,
     } = useSpeechRecognition();
 
+    useEffect(() => {
+        historyRef.current = history;
+    }, [history]);
 
     // useEffect(() => {
     //     socket.on("messageResponse", (data) => setMessages([...messages, data]));
     // }, [socket, messages]);
 
     useEffect(() => {
+
+        if (!userInfo?.user?.id) return;
+
+        const socket = io("http://localhost:3000", {
+            transports: ['websocket'],
+            query: { id: userInfo.user.id },
+        });
+
         socket.once("connect", () => {
             console.log("Connected to socket server!");
-
         });
 
-        // Listen when another user comes online    
         socket.on("online", (userId) => {
-            const updatedHistory = history.map(user => {
+            const updatedHistory = historyRef.current.map(user => {
                 if (user.id === userId) {
-                    return {
-                        ...user,
-                        status: "online" // You can set any value here
-                    };
+                    return { ...user, status: "online" };
                 }
                 return user;
             });
-            setHistory(updatedHistory)
-            localStorage.setItem('Husers', JSON.stringify(updatedHistory));
-            console.log(`User ${userId} is Online`);
-            Notify(userId, "Online")
-            // Update UI to show online status
+            setHistory(updatedHistory);
+            // Notify(userId, "Online");
         });
 
-        // Listen when a user goes offline
         socket.on("offline", (userId) => {
-            const updatedHistory = history.map(user => {
+            const updatedHistory = historyRef.current.map(user => {
                 if (user.id === userId) {
-                    return {
-                        ...user,
-                        status: "offline" // You can set any value here
-                    };
+                    return { ...user, status: "offline" };
                 }
                 return user;
             });
-
-            setHistory(updatedHistory)
-            localStorage.setItem('Husers', JSON.stringify(updatedHistory));
-            // Update UI to show offline status
-            Notify(userId, "Offline")
+            setHistory(updatedHistory);
+            // Notify(userId, "Offline");
         });
 
         return () => {
             socket.off("online");
             socket.off("offline");
+            socket.disconnect();
         };
-    }, [history])
+    }, [userInfo?.user?.id]);
 
-    // console.log(browserSupportsSpeechRecognition)
+
     if (!browserSupportsSpeechRecognition) {
         return <span>Browser doesn't support speech recognition.</span>;
     }
@@ -95,6 +96,7 @@ const ChatPage = ({ }) => {
         const text = `👤 ${user?.name || "A user"} is now ${status}.`;
         new Notification(`Hey`, { body: text });
     };
+
     const CallGif = async (gif) => {
         const API_KEY = import.meta.env.VITE_GIF_KEY;
         // console.log(API_KEY)

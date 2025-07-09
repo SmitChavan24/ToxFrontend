@@ -7,9 +7,11 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup"
 import { useAuth } from '../../context/Authcontext';
+import useNetworkStatus from '../../utils/networkstatus';
 
 const Login = () => {
-    const [user, setUser] = useState('')
+    const { isOnline } = useNetworkStatus();
+    console.log(isOnline, "afasf")
     const navigate = useNavigate();
     const { setUserInfo } = useAuth()
     const schema = yup.object().shape({

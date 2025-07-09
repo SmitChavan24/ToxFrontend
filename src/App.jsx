@@ -10,6 +10,7 @@ import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import ChatPage from './pages/chat/ChatPage'
 import FaceCapture from './pages/landing/FaceCapture'
 import PublicRoutes from './utils/routes/Publicroute'
+import useAuthStore from '../store/store'
 
 
 const queryClient = new QueryClient({
@@ -22,7 +23,11 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+  const loadFromLocalStorage = useAuthStore(state => state.loadFromLocalStorage);
 
+  useEffect(() => {
+    loadFromLocalStorage();
+  }, []);
 
   Notification.requestPermission((result) => {
     console.log(result);
