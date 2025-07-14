@@ -15,7 +15,7 @@ import useAuthStore from "../../../store/store";
 // import { socket } from "../../utils/socket/socketserver";
 const env = await import.meta.env;
 
-
+let socket;
 
 const ChatPage = ({ }) => {
     const navigate = useNavigate()
@@ -38,6 +38,7 @@ const ChatPage = ({ }) => {
 
     useEffect(() => {
         historyRef.current = history;
+        checkOnlineUsers()
     }, [history]);
 
     // useEffect(() => {
@@ -48,13 +49,21 @@ const ChatPage = ({ }) => {
 
         if (!userInfo?.user?.id) return;
 
-        const socket = io("http://localhost:3000", {
+        socket = io("http://localhost:3000", {
             transports: ['websocket'],
             query: { id: userInfo.user.id },
         });
 
         socket.once("connect", () => {
             console.log("Connected to socket server!");
+        });
+
+        socket.on("receive_message", (data) => {
+            console.log(data, 'receive_messagex ')
+            setMessages(prev => [
+                ...prev,
+                { sender: 'them', text: data.message.text }
+            ]);
         });
 
         socket.on("online", (userId) => {
@@ -65,7 +74,7 @@ const ChatPage = ({ }) => {
                 return user;
             });
             setHistory(updatedHistory);
-            // Notify(userId, "Online");
+            Notify(userId, "Online");
         });
 
         socket.on("offline", (userId) => {
@@ -85,7 +94,30 @@ const ChatPage = ({ }) => {
             socket.disconnect();
         };
     }, [userInfo?.user?.id]);
+    // console.log(history, "history")
 
+    const checkOnlineUsers = async () => {
+        try {
+            const response = await axios.post(`${env.VITE_SERVER_URL}online-users`, history, {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const { onlineUserIds } = response.data;
+
+            const updatedHistory = historyRef.current.map(user => ({
+                ...user,
+                status: onlineUserIds.includes(user.id) ? 'online' : 'offline'
+            }));
+
+            setHistory(updatedHistory);
+
+        } catch (error) {
+            console.error('Error checking online users:', error);
+            return [];
+        }
+    };
 
     if (!browserSupportsSpeechRecognition) {
         return <span>Browser doesn't support speech recognition.</span>;
@@ -115,7 +147,7 @@ const ChatPage = ({ }) => {
         const value = e.target.value;
         setSearch(value)
         try {
-            const res = await axios.get(`http://localhost:3000/searchbyemail?email=${value}`);
+            const res = await axios.get(`${env.VITE_SERVER_URL}searchbyemail?email=${value}`);
             if (res?.data?.users) {
                 setUsersData(res.data.users);
             } else {
@@ -127,18 +159,6 @@ const ChatPage = ({ }) => {
         }
     };
 
-    const handleSendMessage = (e) => {
-        // e.preventDefault();
-        console.log(message)
-        socket.emit("message", {
-            text: message,
-            name: "smit",
-            id: `${socket.id}${Math.random()}`,
-            socketID: socket.id,
-        });
-
-        setMessage("");
-    };
 
     const SetHistory = async (user) => {
         setUsersData([])
@@ -161,11 +181,18 @@ const ChatPage = ({ }) => {
     const handleSend = () => {
         SpeechRecognition.stopListening()
         if (transcript.trim() === '') return;
+        const toUserId = selectedUser.id
+        const message = { text: transcript, timestamp: new Date() }
+        socket.emit("send_message", {
+            toUserId,
+            message,
+            from: usersData
+        });
         setMessages([...messages, { sender: 'me', text: transcript }]);
         setNewMsg('');
         resetTranscript()
     };
-
+    // console.log(usersData)
     return (
         <div className="flex flex-col h-screen">
             {/* 🔵 Navigation Bar */}

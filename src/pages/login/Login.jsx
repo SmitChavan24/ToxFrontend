@@ -8,6 +8,7 @@ import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup"
 import { useAuth } from '../../context/Authcontext';
 import useNetworkStatus from '../../utils/networkstatus';
+const env = await import.meta.env;
 
 const Login = () => {
     const { isOnline } = useNetworkStatus();
@@ -37,7 +38,7 @@ const Login = () => {
             //         Accept: 'application/json'
             //     }
             // })
-            // const response = await axios.get('http://localhost:3000/')
+            // const response = await axios.get(`${env.VITE_SERVER_URL}`)
             // console.log(response, "responsee")
 
 
@@ -47,7 +48,7 @@ const Login = () => {
 
     const GoogleDecode = async (creds) => {
         console.log(creds)
-        const response = await axios.post('http://localhost:3000/google-auth/', creds
+        const response = await axios.post(`${env.VITE_SERVER_URL}google-auth/`, creds
             ,
             {
                 headers: {
@@ -56,7 +57,7 @@ const Login = () => {
             })
 
         if (response.data.payload) {
-            const response2 = await axios.post('http://localhost:3000/gsignin/', response.data.payload
+            const response2 = await axios.post(`${env.VITE_SERVER_URL}gsignin/`, response.data.payload
                 ,
                 {
                     headers: {
@@ -75,7 +76,7 @@ const Login = () => {
     }
 
     const Login = async (data) => {
-        const response = await axios.post('http://localhost:3000/login/', data)
+        const response = await axios.post(`${env.VITE_SERVER_URL}login/`, data)
 
         if (response.data.message == "Login successful") {
 

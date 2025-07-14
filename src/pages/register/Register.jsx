@@ -14,6 +14,7 @@ import {
 import { Button } from "../../components/ui/button"
 import Confirmpassword from '../../screens/components/confirmpassword'
 import axios from 'axios'
+const env = await import.meta.env;
 
 const Register = () => {
     const navigate = useNavigate();
@@ -85,7 +86,7 @@ const Register = () => {
         } else {
             // console.log('Final Submission', data);
             try {
-                const response2 = await axios.post('http://localhost:3000/register/', data
+                const response2 = await axios.post(`${env.VITE_SERVER_URL}register/`, data
                     ,
                     {
                         headers: {
