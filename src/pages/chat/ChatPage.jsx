@@ -12,6 +12,7 @@ import { useAuth } from "../../context/Authcontext";
 import { User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../../../store/store";
+import EmojiGifBox from "../../screens/components/emojipicker";
 // import { socket } from "../../utils/socket/socketserver";
 const env = await import.meta.env;
 
@@ -21,12 +22,18 @@ const ChatPage = ({ }) => {
     const navigate = useNavigate()
     // const { userInfo, history, setHistory } = useAuth()
     const { userInfo, history, setUserInfo, setHistory } = useAuthStore();
+    const [unreadCounts, setUnreadCounts] = useState({});
     const [message, setMessage] = useState("");
     const [search, setSearch] = useState('');
     const [selectedUser, setSelectedUser] = useState(null);
     const [usersData, setUsersData] = useState([])
-    const [messages, setMessages] = useState([]);
-    const [newMsg, setNewMsg] = useState('');
+    const [gifResults, setGifResults] = useState([]);
+
+    // const [messages, setMessages] = useState([]);
+    const [messages, setMessages] = useState({});
+    const [abortController, setAbortController] = useState(new
+        AbortController());
+    const [isListening, setIsListening] = useState(false);
     const historyRef = useRef(history);
 
     const {
@@ -34,12 +41,27 @@ const ChatPage = ({ }) => {
         listening,
         resetTranscript,
         browserSupportsSpeechRecognition,
-    } = useSpeechRecognition();
+    } = useSpeechRecognition({
+        interimResults: true, // Get partial results
+        continuous: true, // Enable continuous recognition
+        maxAlternatives: 5, // Set the number of alternative transcriptions
+        abortController: new AbortController(),
+    });
+
+    useEffect(() => {
+        checkOnlineUsers()
+    }, []);
 
     useEffect(() => {
         historyRef.current = history;
-        checkOnlineUsers()
     }, [history]);
+
+    useEffect(() => {
+        if (transcript && transcript !== "") {
+            setMessage(prev => (prev + " " + transcript).trim());
+            resetTranscript(); // important to prevent repeated appends
+        }
+    }, [transcript]);
 
     // useEffect(() => {
     //     socket.on("messageResponse", (data) => setMessages([...messages, data]));
@@ -49,7 +71,7 @@ const ChatPage = ({ }) => {
 
         if (!userInfo?.user?.id) return;
 
-        socket = io("http://localhost:3000", {
+        socket = io(env.VITE_SERVER_LURL, {
             transports: ['websocket'],
             query: { id: userInfo.user.id },
         });
@@ -60,10 +82,18 @@ const ChatPage = ({ }) => {
 
         socket.on("receive_message", (data) => {
             console.log(data, 'receive_messagex ')
-            setMessages(prev => [
+
+            if (!selectedUser || selectedUser?.id !== data.sender.id) {
+                setUnreadCounts((prev) => ({
+                    ...prev,
+                    [data.sender.id]: (prev[data.sender.id] || 0) + 1
+                }));
+            }
+            setMessages((prev) => ({
                 ...prev,
-                { sender: 'them', text: data.message.text }
-            ]);
+                [data.sender.id]: [...(prev[data.sender.id] || []), { sender: data.sender, message: data.message }],
+            }));
+            MNotification(data.sender, data.message)
         });
 
         socket.on("online", (userId) => {
@@ -94,11 +124,10 @@ const ChatPage = ({ }) => {
             socket.disconnect();
         };
     }, [userInfo?.user?.id]);
-    // console.log(history, "history")
 
     const checkOnlineUsers = async () => {
         try {
-            const response = await axios.post(`${env.VITE_SERVER_URL}online-users`, history, {
+            const response = await axios.post(`${env.VITE_SERVER_LURL}online-users`, history, {
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -129,6 +158,24 @@ const ChatPage = ({ }) => {
         new Notification(`Hey`, { body: text });
     };
 
+    const MNotification = (user, data) => {
+        console.log(user, data, "dassadasd")
+        const text = `👤 ${user?.name || "A user"} has sent you a message.`;
+
+        if (data.isGif) {
+
+            let icon = extractGifUrlFromText(data.text); // <- see below
+            new Notification(`${text}`, { body: "", icon: icon });
+        } else {
+            new Notification(`${text}`, { body: data.text });
+        }
+
+    };
+
+    const extractGifUrlFromText = (html) => {
+        const match = html.match(/<img[^>]+src="([^">]+)"/);
+        return match ? match[1] : "/default-icon.png";
+    };
     const CallGif = async (gif) => {
         const API_KEY = import.meta.env.VITE_GIF_KEY;
         // console.log(API_KEY)
@@ -139,15 +186,19 @@ const ChatPage = ({ }) => {
 
         const Gifresponse = await axios.get(SEARCHSTICK)
         console.log(Gifresponse)
-
+        const gifs = Gifresponse.data.data; // Giphy returns array in data.data
+        setGifResults(gifs);
 
     }
+    const handleInputChange = (e) => {
+        setMessage(e.target.value);
+    };
 
     const handleSearch = async (e) => {
         const value = e.target.value;
         setSearch(value)
         try {
-            const res = await axios.get(`${env.VITE_SERVER_URL}searchbyemail?email=${value}`);
+            const res = await axios.get(`${env.VITE_SERVER_LURL}searchbyemail?email=${value}`);
             if (res?.data?.users) {
                 setUsersData(res.data.users);
             } else {
@@ -180,19 +231,51 @@ const ChatPage = ({ }) => {
     }
     const handleSend = () => {
         SpeechRecognition.stopListening()
-        if (transcript.trim() === '') return;
+        abortController.abort();
+        setIsListening(false);
+        if (message.trim() === '') return;
         const toUserId = selectedUser.id
-        const message = { text: transcript, timestamp: new Date() }
+        const smessage = { text: message, timestamp: new Date() }
         socket.emit("send_message", {
             toUserId,
-            message,
-            from: usersData
+            message: smessage,
+            from: userInfo.user
         });
-        setMessages([...messages, { sender: 'me', text: transcript }]);
-        setNewMsg('');
-        resetTranscript()
+        setMessages((prev) => ({
+            ...prev,
+            [toUserId]: [...(prev[toUserId] || []), { sender: userInfo?.user, message: smessage }],
+        }));
+        // setMessages([...messages, { sender: userInfo?.user, message: smessage }]);
+        setMessage('');
+        resetTranscript();
+        setAbortController(new AbortController());
     };
-    // console.log(usersData)
+
+    const handleSendGif = (gifUrl) => {
+        if (!selectedUser) return;
+        const toUserId = selectedUser.id;
+        const smessage = {
+            text: `<img src="${gifUrl}" alt="gif" />`,
+            timestamp: new Date().toISOString(),
+            isGif: true
+        }
+
+        socket.emit("send_message", {
+            toUserId,
+            message: smessage,
+            from: userInfo.user
+        });
+
+        setMessages((prev) => ({
+            ...prev,
+            [toUserId]: [...(prev[toUserId] || []), { sender: userInfo?.user, message: smessage }],
+        }));
+
+        setGifResults([]); // clear gifs after send
+    };
+
+    const chatMessages = messages[selectedUser?.id] || [];
+
     return (
         <div className="flex flex-col h-screen">
             {/* 🔵 Navigation Bar */}
@@ -240,7 +323,14 @@ const ChatPage = ({ }) => {
 
                         {history.map((user) => (<div
                             key={user?.id}
-                            onClick={() => setSelectedUser(user)}
+                            onClick={() => {
+                                setSelectedUser(user);
+                                setUnreadCounts((prev) => {
+                                    const updated = { ...prev };
+                                    delete updated[user.id];
+                                    return updated;
+                                });
+                            }}
                             className={`flex justify-between items-center p-3 mb-2 rounded-lg cursor-pointer hover:bg-gray-100 ${selectedUser?.id === user?.id ? 'bg-gray-200' : ''
                                 }`}
                         >
@@ -248,13 +338,21 @@ const ChatPage = ({ }) => {
                                 <h3 className="font-semibold">{user?.name}</h3>
                             </div>
                             <div className="flex items-center gap-2">
+                                {unreadCounts[user.id] > 0 && (
+                                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                                        {unreadCounts[user.id]}
+                                    </span>
+                                )}
                                 <span
                                     className={`h-3 w-3 rounded-full ${user?.status === 'online' ? 'bg-green-500' : 'bg-gray-400'
                                         }`}
                                 ></span>
                                 {/* <span className="text-sm font-medium capitalize">{user?.status}</span> */}
                             </div>
-                        </div>))}
+                        </div>
+                        ))}
+
+
                     </div>
                 </div>
 
@@ -270,15 +368,31 @@ const ChatPage = ({ }) => {
 
                             {/* Messages */}
                             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                                {messages.map((msg, index) => (
-                                    <div
-                                        key={index}
-                                        className={`max-w-xs p-2 rounded-lg ${msg.sender === 'me'
-                                            ? 'ml-auto bg-blue-500 text-white'
-                                            : 'bg-gray-200 text-black'
-                                            }`}
-                                    >
-                                        {msg.text}
+                                {chatMessages.map((msg, index) => (
+                                    <div key={index} className="flex flex-col">
+
+                                        <div
+                                            className={`inline-flex p-2 rounded-lg ${msg?.sender?.id === userInfo?.user?.id
+                                                ? 'ml-auto bg-blue-500 text-white'
+                                                : 'mr-auto bg-gray-200 text-black'
+                                                }`}
+                                        >
+                                            {/* {console.log(msg)} */}
+                                            <div className="text-sm">
+                                                {msg?.message?.isGif ? (
+                                                    <img src={msg?.message?.text.match(/src="(.*?)"/)?.[1]} alt="gif" className="max-w-[200px] h-auto rounded" />
+                                                ) : (
+                                                    msg?.message?.text
+                                                )}
+                                            </div>
+                                            {/* <div className="text-sm">{msg.message.text}</div> */}
+                                        </div>
+                                        <div
+                                            className={`text-xs text-gray-500 mt-1 ${msg?.sender?.id === userInfo?.user?.id ? 'text-right' : 'text-left'
+                                                }`}
+                                        >
+                                            {msg?.sender?.id === userInfo?.user?.id ? "" : msg?.sender?.name} • {new Date(msg?.message?.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -288,22 +402,50 @@ const ChatPage = ({ }) => {
                                 <input
                                     type="text"
                                     placeholder="Type a message..."
-                                    value={transcript}
-                                    onChange={() => setMessage(transcript)}
+                                    value={message}
+                                    onChange={handleInputChange}
                                     className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring"
                                 />
-                                <button
-                                    onClick={() => SpeechRecognition.startListening({ continuous: true })}
+                                {gifResults.length > 0 && (
+                                    <div className="p-4 grid grid-cols-3 gap-3 overflow-y-auto max-h-64">
+                                        {gifResults.map((gif) => (
+                                            <img
+                                                key={gif.id}
+                                                src={gif.images.fixed_height_small.url}
+                                                alt="gif"
+                                                className="w-full h-auto cursor-pointer rounded hover:scale-105 transition-transform"
+                                                onClick={() => handleSendGif(gif.images.fixed_height_small.url)}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+
+                                {!isListening ? (<button
+                                    onClick={() => { SpeechRecognition.startListening({ continuous: true }); setIsListening(true); }}
                                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                                 >
                                     Start
-                                </button>
-                                <button
-                                    onClick={handleSend}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                </button>) : (
+                                    <button
+                                        onClick={handleSend}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                    >
+                                        Send
+                                    </button>)}
+                                <EmojiGifBox
+                                    onGifSend={(url) => {
+                                        handleSendGif(url); // use your existing logic
+                                    }}
+                                    onEmojiSelect={(emoji) => {
+                                        setMessage((prev) => prev + emoji); // append emoji to input
+                                    }}
+                                />
+                                {/* <button
+                                    onClick={CallGif}
+                                    className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
                                 >
-                                    Send
-                                </button>
+                                    Load GIFs
+                                </button> */}
                             </div>
                         </>
                     ) : (

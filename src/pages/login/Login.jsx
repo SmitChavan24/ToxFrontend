@@ -48,7 +48,7 @@ const Login = () => {
 
     const GoogleDecode = async (creds) => {
         console.log(creds)
-        const response = await axios.post(`${env.VITE_SERVER_URL}google-auth/`, creds
+        const response = await axios.post(`${env.VITE_SERVER_LURL}google-auth/`, creds
             ,
             {
                 headers: {
@@ -57,7 +57,7 @@ const Login = () => {
             })
 
         if (response.data.payload) {
-            const response2 = await axios.post(`${env.VITE_SERVER_URL}gsignin/`, response.data.payload
+            const response2 = await axios.post(`${env.VITE_SERVER_LURL}gsignin/`, response.data.payload
                 ,
                 {
                     headers: {
@@ -76,7 +76,7 @@ const Login = () => {
     }
 
     const Login = async (data) => {
-        const response = await axios.post(`${env.VITE_SERVER_URL}login/`, data)
+        const response = await axios.post(`${env.VITE_SERVER_LURL}login/`, data)
 
         if (response.data.message == "Login successful") {
 
