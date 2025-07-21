@@ -13,6 +13,8 @@ import { User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../../../store/store";
 import EmojiGifBox from "../../screens/components/emojipicker";
+import { showNotification } from "../../screens/components/shownotification";
+navigator.serviceWorker.register("sw.js");
 // import { socket } from "../../utils/socket/socketserver";
 const env = await import.meta.env;
 
@@ -73,7 +75,7 @@ const ChatPage = ({ }) => {
 
         socket = io(env.VITE_SERVER_LURL, {
             transports: ['websocket'],
-            query: { id: userInfo.user.id },
+            query: { id: userInfo?.user?.id },
         });
 
         socket.once("connect", () => {
@@ -83,17 +85,17 @@ const ChatPage = ({ }) => {
         socket.on("receive_message", (data) => {
             console.log(data, 'receive_messagex ')
 
-            if (!selectedUser || selectedUser?.id !== data.sender.id) {
+            if (!selectedUser || selectedUser?.id !== data?.sender?.id) {
                 setUnreadCounts((prev) => ({
                     ...prev,
-                    [data.sender.id]: (prev[data.sender.id] || 0) + 1
+                    [data?.sender?.id]: (prev[data?.sender?.id] || 0) + 1
                 }));
             }
             setMessages((prev) => ({
                 ...prev,
-                [data.sender.id]: [...(prev[data.sender.id] || []), { sender: data.sender, message: data.message }],
+                [data?.sender?.id]: [...(prev[data?.sender?.id] || []), { sender: data?.sender, message: data?.message }],
             }));
-            MNotification(data.sender, data.message)
+            MNotification(data?.sender, data?.message)
         });
 
         socket.on("online", (userId) => {
@@ -109,7 +111,7 @@ const ChatPage = ({ }) => {
 
         socket.on("offline", (userId) => {
             const updatedHistory = historyRef.current.map(user => {
-                if (user.id === userId) {
+                if (user?.id === userId) {
                     return { ...user, status: "offline" };
                 }
                 return user;
@@ -137,7 +139,7 @@ const ChatPage = ({ }) => {
 
             const updatedHistory = historyRef.current.map(user => ({
                 ...user,
-                status: onlineUserIds.includes(user.id) ? 'online' : 'offline'
+                status: onlineUserIds.includes(user?.id) ? 'online' : 'offline'
             }));
 
             setHistory(updatedHistory);
@@ -153,9 +155,9 @@ const ChatPage = ({ }) => {
     }
 
     const Notify = (userId, status) => {
-        const user = history.find(u => u.id === userId);
+        const user = history.find(u => u?.id === userId);
         const text = `👤 ${user?.name || "A user"} is now ${status}.`;
-        new Notification(`Hey`, { body: text });
+        showNotification('Hey', text)
     };
 
     const MNotification = (user, data) => {
@@ -167,7 +169,8 @@ const ChatPage = ({ }) => {
             let icon = extractGifUrlFromText(data.text); // <- see below
             new Notification(`${text}`, { body: "", icon: icon });
         } else {
-            new Notification(`${text}`, { body: data.text });
+            showNotification(text, data.text)
+            // new Notification(`${text}`, { body: data.text });
         }
 
     };
@@ -200,7 +203,7 @@ const ChatPage = ({ }) => {
         try {
             const res = await axios.get(`${env.VITE_SERVER_LURL}searchbyemail?email=${value}`);
             if (res?.data?.users) {
-                setUsersData(res.data.users);
+                setUsersData(res?.data?.users);
             } else {
                 setUsersData([])
             }
@@ -218,7 +221,7 @@ const ChatPage = ({ }) => {
 
         // Check if user is already in history (using `_id` or `id`)
         const isUserPresent = history.some(
-            (u) => u.id === user.id
+            (u) => u?.id === user?.id
         );
         // If not present, add to history and update localStorage
         if (!isUserPresent) {
@@ -263,7 +266,7 @@ const ChatPage = ({ }) => {
         socket.emit("send_message", {
             toUserId,
             message: smessage,
-            from: userInfo.user
+            from: userInfo?.user
         });
 
         setMessages((prev) => ({
@@ -327,7 +330,7 @@ const ChatPage = ({ }) => {
                                 setSelectedUser(user);
                                 setUnreadCounts((prev) => {
                                     const updated = { ...prev };
-                                    delete updated[user.id];
+                                    delete updated[user?.id];
                                     return updated;
                                 });
                             }}
@@ -338,9 +341,9 @@ const ChatPage = ({ }) => {
                                 <h3 className="font-semibold">{user?.name}</h3>
                             </div>
                             <div className="flex items-center gap-2">
-                                {unreadCounts[user.id] > 0 && (
+                                {unreadCounts[user?.id] > 0 && (
                                     <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                                        {unreadCounts[user.id]}
+                                        {unreadCounts[user?.id]}
                                     </span>
                                 )}
                                 <span
