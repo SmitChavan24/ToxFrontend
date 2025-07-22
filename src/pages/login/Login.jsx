@@ -14,7 +14,7 @@ const Login = () => {
     const { isOnline } = useNetworkStatus();
     console.log(isOnline, "afasf")
     const navigate = useNavigate();
-    const { setUserInfo } = useAuth()
+    const { userInfo, setUserInfo } = useAuth()
     const schema = yup.object().shape({
         email: yup
             .string()
@@ -29,6 +29,12 @@ const Login = () => {
         setValue,
         formState: { errors },
     } = useForm({ defaultValues: {}, resolver: yupResolver(schema) });
+
+    useEffect(() => {
+        if (userInfo?.user?.id) {
+            navigate('/chat');
+        }
+    }, []);
 
     useEffect(() => {
         const apicall = async () => {
