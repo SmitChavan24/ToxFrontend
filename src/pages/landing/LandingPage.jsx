@@ -12,7 +12,8 @@ const LandingPage = () => {
     // Apply or remove 'dark' class on <html>
     useEffect(() => {
         const userinfo = localStorage.getItem('UserInfo')
-        if (userinfo) {
+        // console.log(userinfo, "fdgdaga")
+        if (userinfo?.user?.id) {
             navigate('/chat')
         }
     }, [])

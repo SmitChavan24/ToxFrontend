@@ -11,7 +11,7 @@ import ChatPage from './pages/chat/ChatPage'
 import FaceCapture from './pages/landing/FaceCapture'
 import PublicRoutes from './utils/routes/Publicroute'
 import useAuthStore from '../store/store'
-
+// navigator.serviceWorker.register("sw.js");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,15 +23,17 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  const loadFromLocalStorage = useAuthStore(state => state.loadFromLocalStorage);
-
+  // const loadFromLocalStorage = useAuthStore(state => state.loadFromLocalStorage);
+  const { userInfo, history } = useAuthStore();
   useEffect(() => {
-    loadFromLocalStorage();
+    Notification.requestPermission((result) => {
+      console.log(result);
+    });
+    // loadFromLocalStorage();
+    // console.log(userInfo, "adfafafss", history)
   }, []);
 
-  Notification.requestPermission((result) => {
-    console.log(result);
-  });
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -44,11 +46,12 @@ const App = () => {
             <Route path="*" element={<h1>Page not found</h1>} />
             {/* </Route> */}
 
-            <Route element={<PrivateRoutes />}>
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/captureface" element={<Captureface />} />
-              <Route path="/facecapture" element={<FaceCapture />} />
-            </Route>
+
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/captureface" element={<Captureface />} />
+            <Route path="/facecapture" element={<FaceCapture />} />
+            {/* <Route element={<PrivateRoutes />}> */}
+            {/* </Route> */}
           </Routes>
         </BrowserRouter>
       </AuthProvider>

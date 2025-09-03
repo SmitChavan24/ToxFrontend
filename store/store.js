@@ -1,28 +1,35 @@
 import { create } from 'zustand'
 
-const useAuthStore = create((set) => ({
-    userInfo: null,
-    history: [],
+const useAuthStore = create((set, get) => {
+    return {
+        userInfo: null,
+        history: [],
 
-    setUserInfo: (userInfo) => {
-        localStorage.setItem("UserInfo", JSON.stringify(userInfo));
-        set({ userInfo });
-    },
+        setUser: (userInfo) => {
 
-    setHistory: (history) => {
-        localStorage.setItem("Husers", JSON.stringify(history));
-        set({ history });
-    },
+            // localStorage.setItem("UserInfo", JSON.stringify(userInfo?.payload));
+            set({ userInfo });
+        },
 
-    loadFromLocalStorage: () => {
-        const storedUser = localStorage.getItem("UserInfo");
-        const storedHistory = localStorage.getItem("Husers");
+        setHistory: (history) => {
+            localStorage.setItem("Husers", JSON.stringify(history));
+            set({ history });
+        },
 
-        set({
-            userInfo: storedUser ? JSON.parse(storedUser) : null,
-            history: storedHistory ? JSON.parse(storedHistory) : [],
-        });
-    },
-}));
+        removeUser: () => {
+            set({ userInfo: null, history: [] });
+        },
+
+        loadFromLocalStorage: () => {
+            const storedUser = localStorage.getItem("UserInfo");
+            const storedHistory = localStorage.getItem("Husers");
+
+            set({
+                userInfo: storedUser ? JSON.parse(storedUser) : null,
+                history: storedHistory ? JSON.parse(storedHistory) : [],
+            });
+        },
+    }
+});
 
 export default useAuthStore;

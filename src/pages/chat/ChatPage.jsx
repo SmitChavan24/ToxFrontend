@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 import useAuthStore from "../../../store/store";
 import EmojiGifBox from "../../screens/components/emojipicker";
 import { showNotification } from "../../screens/components/shownotification";
-navigator.serviceWorker.register("sw.js");
+// navigator.serviceWorker.register("sw.js");
 // import { socket } from "../../utils/socket/socketserver";
 const env = await import.meta.env;
 
@@ -23,7 +23,7 @@ let socket;
 const ChatPage = ({ }) => {
     const navigate = useNavigate()
     // const { userInfo, history, setHistory } = useAuth()
-    const { userInfo, history, setUserInfo, setHistory } = useAuthStore();
+    const { userInfo, history, setUserInfo, setHistory, removeUser } = useAuthStore();
     const [unreadCounts, setUnreadCounts] = useState({});
     const [message, setMessage] = useState("");
     const [search, setSearch] = useState('');
@@ -196,7 +196,11 @@ const ChatPage = ({ }) => {
     const handleInputChange = (e) => {
         setMessage(e.target.value);
     };
-
+    const logoutuser = () => {
+        localStorage.removeItem('UserInfo');
+        removeUser();
+        navigate('/login');
+    }
     const handleSearch = async (e) => {
         const value = e.target.value;
         setSearch(value)
@@ -291,7 +295,7 @@ const ChatPage = ({ }) => {
                         className="h-10 w-10 rounded-full"
                     />
                     <span className="text-gray-700">{userInfo?.user?.name}</span>
-                    <button className="text-gray-700" onClick={() => { localStorage.removeItem('UserInfo'); navigate('/login') }}>Logout</button>
+                    <button className="text-gray-700" onClick={logoutuser}>Logout</button>
                 </div>
             </div>
 

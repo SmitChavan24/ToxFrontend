@@ -3,7 +3,7 @@ import { useAuth } from '../../context/Authcontext'
 
 const PublicRoutes = ({ children }) => {
     const { userInfo } = useAuth()
-
+    console.log(userInfo, "dasfasfa")
     return userInfo ? <Navigate to="/chat" /> : children
 }
 

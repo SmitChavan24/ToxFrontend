@@ -7,14 +7,17 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup"
 import { useAuth } from '../../context/Authcontext';
+import useAuthStore from '../../../store/store';
 import useNetworkStatus from '../../utils/networkstatus';
 const env = await import.meta.env;
 
 const Login = () => {
     const { isOnline } = useNetworkStatus();
-    console.log(isOnline, "afasf")
+    // console.log(isOnline, "afasf")
     const navigate = useNavigate();
-    const { userInfo, setUserInfo } = useAuth()
+    // const { userInfo, setUserInfo } = useAuth()
+    const { userInfo } = useAuthStore()
+    const setUser = useAuthStore((state) => state.setUser);
     const schema = yup.object().shape({
         email: yup
             .string()
@@ -32,6 +35,7 @@ const Login = () => {
 
     useEffect(() => {
         if (userInfo?.user?.id) {
+            console.log(userInfo, "fdsfd")
             navigate('/chat');
         }
     }, []);
@@ -75,6 +79,7 @@ const Login = () => {
             if (response2.data.message == "Login successful") {
                 console.log(response2.data)
                 localStorage.setItem('UserInfo', JSON.stringify(response2.data))
+                setUser(response2.data)
                 navigate('/chat')
             }
         }
@@ -87,7 +92,9 @@ const Login = () => {
         if (response.data.message == "Login successful") {
 
             localStorage.setItem('UserInfo', JSON.stringify(response.data))
-            setUserInfo(response.data)
+
+            // setUserInfo(response.data)
+            setUser(response.data)
             navigate('/chat')
         }
     }

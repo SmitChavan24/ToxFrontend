@@ -4,7 +4,6 @@ import { useEffect } from 'react'
 
 const PrivateRoutes = () => {
     const { userInfo } = useAuth()
-    const navigate = useNavigate()
 
     return userInfo ? <Outlet /> : <Navigate to="/login" />
 }
