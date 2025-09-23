@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form';
 import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup"
+import { ArrowLeft } from 'lucide-react';
+import { Button } from '../../components/ui/button';
 import { useAuth } from '../../context/Authcontext';
 import useAuthStore from '../../../store/store';
 import useNetworkStatus from '../../utils/networkstatus';
@@ -21,7 +23,6 @@ const Login = () => {
     const schema = yup.object().shape({
         email: yup
             .string()
-            .email('Must be a valid email')
             .required('Email is required'),
         password: yup.string().required('Password is required').min(6),
     });
@@ -102,7 +103,7 @@ const Login = () => {
     return (
         <>
             <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
-                <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+                <div className="sm:mx-auto sm:w-full sm:max-w-sm mt-20">
                     <img
                         alt="Your Company"
                         src={Logo}
@@ -112,18 +113,28 @@ const Login = () => {
                         Login in to your account
                     </h2>
                 </div>
-
+                <div className="absolute left-6 top-6">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate("/")}
+                        className="flex items-center text-gray-700 hover:text-gray-900"
+                    >
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Login
+                    </Button>
+                </div>
                 <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
                     <form onSubmit={handleSubmit(Login)} className="space-y-6">
                         <div>
                             <label htmlFor="email" className="block text-sm/6 font-medium text-gray-900">
-                                Email address
+                                Email address / Phone Number
                             </label>
                             <div className="mt-2">
                                 <input
                                     id="email"
                                     name="email"
-                                    type="email"
                                     required
                                     {...register("email", { required: true })}
                                     autoComplete="email"
@@ -137,11 +148,11 @@ const Login = () => {
                                 <label htmlFor="password" className="block text-sm/6 font-medium text-gray-900">
                                     Password
                                 </label>
-                                <div className="text-sm">
+                                {/* <div className="text-sm">
                                     <a href="#" className="font-semibold text-indigo-600 hover:text-indigo-500">
                                         Forgot password?
                                     </a>
-                                </div>
+                                </div> */}
                             </div>
                             <div className="mt-2">
                                 <input

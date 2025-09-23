@@ -6,6 +6,7 @@ import Logo from '../../assets/images/ToXLogo.png'
 import { yupResolver } from "@hookform/resolvers/yup"
 import * as yup from "yup"
 import { useForm } from 'react-hook-form'
+import { ArrowLeft } from 'lucide-react'
 import {
     Popover,
     PopoverContent,
@@ -49,6 +50,11 @@ const Register = () => {
                     );
                 }
             ),
+        phone: yup
+            .string()
+            .required("Phone is required")
+            .matches(/^[0-9]+$/, "Phone must contain only digits")
+            .length(10, "Phone must be exactly 10 digits"),
         email: yup
             .string()
             .email('Must be a valid email')
@@ -98,6 +104,7 @@ const Register = () => {
                     navigate('/login');
                 }
             } catch (error) {
+                console.log(error)
                 if (error?.response?.data?.error) {
                     setApiError(error.response.data.error)
                     console.log(error.response.data.error, "error")
@@ -112,7 +119,7 @@ const Register = () => {
         <div className="isolate bg-white px-6 py-24 sm:py-32 lg:px-8">
             <div
                 aria-hidden="true"
-                className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80"
+                className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-70"
             >
                 <div
                     style={{
@@ -122,6 +129,20 @@ const Register = () => {
                     className="relative left-1/2 -z-10 aspect-1155/678 w-144.5 max-w-none -translate-x-1/2 rotate-30 bg-linear-to-tr from-[#ff80b5] to-[#9089fc] opacity-30 sm:left-[calc(50%-40rem)] sm:w-288.75"
                 />
             </div>
+            {isStepOne && (
+                <div className="absolute left-6 top-6">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate("/login")}
+                        className="flex items-center text-gray-700 hover:text-gray-900"
+                    >
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Login
+                    </Button>
+                </div>
+            )}
             <div className="mx-auto max-w-2xl text-center">
                 <img
                     alt="Your Company"
@@ -146,6 +167,7 @@ const Register = () => {
                                 id="first-name"
                                 name="first-name"
                                 type="text"
+                                maxLength={15}
                                 {...register("firstname", { required: true })}
                                 autoComplete="given-name"
                                 className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
@@ -162,6 +184,7 @@ const Register = () => {
                                 id="last-name"
                                 name="last-name"
                                 type="text"
+                                maxLength={15}
                                 {...register("lastname", { required: true })}
                                 autoComplete="family-name"
                                 className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
@@ -206,12 +229,36 @@ const Register = () => {
                                 id="email"
                                 type="email"
                                 autoComplete="email"
+                                maxLength={35}
                                 {...register("email", { required: true })}
                                 className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
                             />
                             <p className="mt-1 text-center text-sm text-red-600">{errors.email?.message}</p>
                         </div>
                     </div>
+                    <div className="sm:col-span-2">
+                        <label
+                            htmlFor="phone"
+                            className="block text-sm/6 font-semibold text-gray-900"
+                        >
+                            Phone Number
+                        </label>
+                        <div className="mt-2.5">
+                            <input
+                                id="phone"
+                                type="text"
+                                // pattern="^[0-9\b]+$"
+                                autoComplete="tel"
+                                maxLength={10}
+                                {...register("phone", { required: true })}
+                                className="block w-full rounded-md bg-white px-3.5 py-2 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600"
+                            />
+                            <p className="mt-1 text-center text-sm text-red-600">
+                                {errors.phone?.message}
+                            </p>
+                        </div>
+                    </div>
+
                     <div className="sm:col-span-2">
                         <label htmlFor="gender" className="block text-sm/6 font-semibold text-gray-900">
                             Gender
