@@ -9,7 +9,7 @@ import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognitio
 import axios from "axios";
 import Profile from '../../assets/images/profile.png'
 import { useAuth } from "../../context/Authcontext";
-import { User } from "lucide-react";
+import { Moon, Sun, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../../../store/store";
 import EmojiGifBox from "../../screens/components/emojipicker";
@@ -23,14 +23,14 @@ let socket;
 const ChatPage = ({ }) => {
     const navigate = useNavigate()
     // const { userInfo, history, setHistory } = useAuth()
-    const { userInfo, history, setUserInfo, setHistory, removeUser } = useAuthStore();
+    const { userInfo, history, setUserInfo, setHistory, removeUser, loadFromLocalStorage } = useAuthStore();
     const [unreadCounts, setUnreadCounts] = useState({});
     const [message, setMessage] = useState("");
     const [search, setSearch] = useState('');
     const [selectedUser, setSelectedUser] = useState(null);
     const [usersData, setUsersData] = useState([])
     const [gifResults, setGifResults] = useState([]);
-
+    const [darkMode, setDarkMode] = useState(false);
     // const [messages, setMessages] = useState([]);
     const [messages, setMessages] = useState({});
     const [abortController, setAbortController] = useState(new
@@ -51,6 +51,7 @@ const ChatPage = ({ }) => {
     });
 
     useEffect(() => {
+        loadFromLocalStorage()
         checkOnlineUsers()
     }, []);
 
@@ -197,7 +198,7 @@ const ChatPage = ({ }) => {
         setMessage(e.target.value);
     };
     const logoutuser = () => {
-        localStorage.removeItem('UserInfo');
+        sessionStorage.removeItem('UserInfo');
         removeUser();
         navigate('/login');
     }
@@ -233,30 +234,62 @@ const ChatPage = ({ }) => {
             newhistory = history;
             newhistory.push(user)
             setHistory(newhistory)
-            localStorage.setItem('Husers', JSON.stringify(newhistory));
+            sessionStorage.setItem('Husers', JSON.stringify(newhistory));
         }
     }
-    const handleSend = () => {
-        SpeechRecognition.stopListening()
-        abortController.abort();
-        setIsListening(false);
+    const handleSend = (file = null) => {
+        if (!selectedUser) return;
+
+        const toUserId = selectedUser.id;
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const smessage = {
+                    type: file.type.startsWith("video") ? "video" : "image",
+                    fileUrl: reader.result, // base64
+                    timestamp: new Date()
+                };
+
+                // Emit to socket
+                socket.emit("send_message", {
+                    toUserId,
+                    message: smessage,
+                    from: userInfo.user
+                });
+
+                // Update local chat
+                setMessages((prev) => ({
+                    ...prev,
+                    [toUserId]: [
+                        ...(prev[toUserId] || []),
+                        { sender: userInfo?.user, message: smessage }
+                    ],
+                }));
+            };
+
+            // Use readAsDataURL for both images and videos
+            reader.readAsDataURL(file);
+            return;
+        }
+
+        // Text message
         if (message.trim() === '') return;
-        const toUserId = selectedUser.id
-        const smessage = { text: message, timestamp: new Date() }
-        socket.emit("send_message", {
-            toUserId,
-            message: smessage,
-            from: userInfo.user
-        });
+
+        const smessage = { text: message, timestamp: new Date() };
+
+        socket.emit("send_message", { toUserId, message: smessage, from: userInfo.user });
+
         setMessages((prev) => ({
             ...prev,
             [toUserId]: [...(prev[toUserId] || []), { sender: userInfo?.user, message: smessage }],
         }));
-        // setMessages([...messages, { sender: userInfo?.user, message: smessage }]);
+
         setMessage('');
-        resetTranscript();
-        setAbortController(new AbortController());
     };
+
+
+
 
     const handleSendGif = (gifUrl) => {
         if (!selectedUser) return;
@@ -284,209 +317,208 @@ const ChatPage = ({ }) => {
     const chatMessages = messages[selectedUser?.id] || [];
 
     return (
-        <div className="flex flex-col h-screen">
+        <div className="flex flex-col h-screen bg-gradient-to-br from-gray-100 via-gray-200 to-gray-300 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
             {/* 🔵 Navigation Bar */}
-            <div className="bg-white shadow px-6 py-4 flex justify-between items-center border-b">
-                <h1 className="text-xl font-semibold">TOX</h1>
-                <div className="flex items-center gap-3">
+            <div className="backdrop-blur-md bg-white/70 dark:bg-gray-800/70 shadow-md px-6 py-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+                    TOX
+                </h1>
+
+                <div className="flex items-center gap-4">
                     <img
                         src={userInfo?.user?.picture || Profile}
                         alt="User"
-                        className="h-10 w-10 rounded-full"
+                        className="h-10 w-10 rounded-full ring-2 ring-blue-500/40"
                     />
-                    <span className="text-gray-700">{userInfo?.user?.name}</span>
-                    <button className="text-gray-700" onClick={logoutuser}>Logout</button>
+                    <span className="text-gray-800 dark:text-gray-200 font-medium">
+                        {userInfo?.user?.name}
+                    </span>
+                    <button
+                        onClick={logoutuser}
+                        className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition dark:text-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
+                    >
+                        Logout
+                    </button>
                 </div>
             </div>
+
 
             {/* 🔵 Main Content */}
             <div className="flex flex-1 overflow-hidden">
                 {/* Sidebar */}
-                <div className="w-full md:w-1/3 lg:w-1/4 bg-white border-r p-4 flex flex-col">
-
+                <div className="w-full md:w-1/3 lg:w-1/4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col shadow-inner">
+                    {/* Search */}
                     <input
                         type="text"
-                        placeholder="Search..."
+                        placeholder="🔍 Search by name, email, or phone..."
                         value={search}
                         onChange={handleSearch}
-                        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring"
+                        className="w-full px-4 py-2 rounded-full border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition placeholder-gray-400 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-400"
                     />
 
 
                     {/* User List */}
-                    <div className="flex-1 overflow-y-auto mt-3">
+                    <div className="flex-1 overflow-y-auto mt-4 space-y-2">
                         {usersData
                             .filter((user) => user?.id !== userInfo?.user?.id)
                             .map((user) => (
                                 <div
                                     key={user?.id}
                                     onClick={() => SetHistory(user)}
-                                    className={`p-3 mb-2 rounded-lg cursor-pointer hover:bg-gray-100 ${selectedUser?.id === user?.id ? 'bg-gray-200' : ''
+                                    className={`p-3 rounded-xl cursor-pointer transition hover:shadow-md hover:bg-blue-50 dark:hover:bg-gray-700 ${selectedUser?.id === user?.id
+                                        ? "bg-blue-100 dark:bg-gray-700 shadow-inner"
+                                        : "bg-white dark:bg-gray-800"
                                         }`}
                                 >
-                                    <h3 className="font-semibold">{user?.name}</h3>
+                                    <h3 className="font-semibold text-gray-800 dark:text-gray-200">{user?.name}</h3>
                                 </div>
                             ))}
 
-                        {history.map((user) => (<div
-                            key={user?.id}
-                            onClick={() => {
-                                setSelectedUser(user);
-                                setUnreadCounts((prev) => {
-                                    const updated = { ...prev };
-                                    delete updated[user?.id];
-                                    return updated;
-                                });
-                            }}
-                            className={`flex justify-between items-center p-3 mb-2 rounded-lg cursor-pointer hover:bg-gray-100 ${selectedUser?.id === user?.id ? 'bg-gray-200' : ''
-                                }`}
-                        >
-                            <div>
-                                <h3 className="font-semibold">{user?.name}</h3>
+                        {history.map((user) => (
+                            <div
+                                key={user?.id}
+                                onClick={() => {
+                                    setSelectedUser(user);
+                                    setUnreadCounts((prev) => {
+                                        const updated = { ...prev };
+                                        delete updated[user?.id];
+                                        return updated;
+                                    });
+                                }}
+                                className={`flex justify-between items-center p-3 rounded-xl cursor-pointer transition hover:shadow-md hover:bg-blue-50 dark:hover:bg-gray-700 ${selectedUser?.id === user?.id
+                                    ? "bg-blue-100 dark:bg-gray-700 shadow-inner"
+                                    : "bg-white dark:bg-gray-800"
+                                    }`}
+                            >
+                                <div>
+                                    <h3 className="font-semibold text-gray-800 dark:text-gray-200">{user?.name}</h3>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {unreadCounts[user?.id] > 0 && (
+                                        <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow">
+                                            {unreadCounts[user?.id]}
+                                        </span>
+                                    )}
+                                    <span
+                                        className={`h-3 w-3 rounded-full ${user?.status === "online" ? "bg-green-500" : "bg-gray-400"
+                                            }`}
+                                    ></span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                {unreadCounts[user?.id] > 0 && (
-                                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                                        {unreadCounts[user?.id]}
-                                    </span>
-                                )}
-                                <span
-                                    className={`h-3 w-3 rounded-full ${user?.status === 'online' ? 'bg-green-500' : 'bg-gray-400'
-                                        }`}
-                                ></span>
-                                {/* <span className="text-sm font-medium capitalize">{user?.status}</span> */}
-                            </div>
-                        </div>
                         ))}
-
-
                     </div>
                 </div>
 
                 {/* Chat Window */}
-                <div className="flex-1 bg-gray-50 flex flex-col">
+                <div className="flex-1 bg-gray-50 dark:bg-gray-900 flex flex-col">
                     {selectedUser ? (
                         <>
                             {/* Chat Header */}
-                            <div className="p-4 border-b">
-                                <h2 className="text-lg font-semibold">{selectedUser.name}</h2>
-                                <h3>{selectedUser.email}</h3>
+                            <div className="p-4 border-b bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-sm border-gray-200 dark:border-gray-700">
+                                <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                                    {selectedUser.name}
+                                </h2>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {selectedUser.email}
+                                </p>
                             </div>
 
                             {/* Messages */}
-                            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                            <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-gradient-to-br from-white via-gray-50 to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
                                 {chatMessages.map((msg, index) => (
                                     <div key={index} className="flex flex-col">
-
                                         <div
-                                            className={`inline-flex p-2 rounded-lg ${msg?.sender?.id === userInfo?.user?.id
-                                                ? 'ml-auto bg-blue-500 text-white'
-                                                : 'mr-auto bg-gray-200 text-black'
+                                            className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-2xl shadow-sm transition ${msg?.sender?.id === userInfo?.user?.id
+                                                ? "ml-auto bg-blue-600 text-white rounded-br-none"
+                                                : "mr-auto bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-200 rounded-bl-none"
                                                 }`}
                                         >
-                                            {/* {console.log(msg)} */}
-                                            <div className="text-sm">
-                                                {msg?.message?.isGif ? (
-                                                    <img src={msg?.message?.text.match(/src="(.*?)"/)?.[1]} alt="gif" className="max-w-[200px] h-auto rounded" />
+                                            {msg?.message?.fileUrl ? (
+                                                msg?.message?.type === "image" ? (
+                                                    <img
+                                                        src={msg.message.fileUrl}
+                                                        alt="uploaded"
+                                                        className="max-w-[250px] rounded-lg shadow-md"
+                                                    />
                                                 ) : (
-                                                    msg?.message?.text
-                                                )}
-                                            </div>
-                                            {/* <div className="text-sm">{msg.message.text}</div> */}
+                                                    <video
+                                                        src={msg.message.fileUrl}
+                                                        controls
+                                                        className="max-w-[250px] rounded-lg shadow-md"
+                                                    />
+                                                )
+                                            ) : (
+                                                <p className="text-sm leading-relaxed">{msg?.message?.text}</p>
+                                            )}
                                         </div>
                                         <div
-                                            className={`text-xs text-gray-500 mt-1 ${msg?.sender?.id === userInfo?.user?.id ? 'text-right' : 'text-left'
+                                            className={`text-xs text-gray-500 dark:text-gray-400 mt-1 ${msg?.sender?.id === userInfo?.user?.id ? "text-right" : "text-left"
                                                 }`}
                                         >
-                                            {msg?.sender?.id === userInfo?.user?.id ? "" : msg?.sender?.name} • {new Date(msg?.message?.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {msg?.sender?.id === userInfo?.user?.id ? "" : msg?.sender?.name} •{" "}
+                                            {new Date(msg?.message?.timestamp).toLocaleTimeString([], {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                            })}
                                         </div>
                                     </div>
                                 ))}
                             </div>
 
+
                             {/* Input */}
-                            <div className="p-4 border-t flex items-center gap-2">
+                            <div className="p-4 border-t bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm flex items-center gap-3 border-gray-200 dark:border-gray-700">
+
+
+                                {/* Text input */}
                                 <input
                                     type="text"
                                     placeholder="Type a message..."
                                     value={message}
                                     onChange={handleInputChange}
-                                    className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring"
-                                />
-                                {gifResults.length > 0 && (
-                                    <div className="p-4 grid grid-cols-3 gap-3 overflow-y-auto max-h-64">
-                                        {gifResults.map((gif) => (
-                                            <img
-                                                key={gif.id}
-                                                src={gif.images.fixed_height_small.url}
-                                                alt="gif"
-                                                className="w-full h-auto cursor-pointer rounded hover:scale-105 transition-transform"
-                                                onClick={() => handleSendGif(gif.images.fixed_height_small.url)}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-
-                                {!isListening ? (<button
-                                    onClick={() => { SpeechRecognition.startListening({ continuous: true }); setIsListening(true); }}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                                >
-                                    Start
-                                </button>) : (
-                                    <button
-                                        onClick={handleSend}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                                    >
-                                        Send
-                                    </button>)}
-                                <EmojiGifBox
-                                    onGifSend={(url) => {
-                                        handleSendGif(url); // use your existing logic
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" && message.trim() !== "") {
+                                            handleSend();
+                                        }
                                     }}
-                                    onEmojiSelect={(emoji) => {
-                                        setMessage((prev) => prev + emoji); // append emoji to input
-                                    }}
+                                    className="flex-1 px-4 py-2 rounded-full border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none transition dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-400"
                                 />
-                                {/* <button
-                                    onClick={CallGif}
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                                {/* Upload button */}
+                                <label className="cursor-pointer flex items-center px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                    📎
+                                    <input
+                                        type="file"
+                                        accept="image/*,video/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                handleSend(file); // send as file message
+                                            }
+                                        }}
+                                    />
+                                </label>
+                                {/* Send button */}
+                                <button
+                                    onClick={handleSend}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition shadow"
                                 >
-                                    Load GIFs
-                                </button> */}
+                                    Send
+                                </button>
                             </div>
+
                         </>
                     ) : (
-                        <div className="flex-1 flex items-center justify-center text-gray-500">
-                            Select a user to start chatting
+                        <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400 text-lg">
+                            👋 Select a user to start chatting
                         </div>
                     )}
                 </div>
+
             </div>
-        </div>)
-    // return (
-    //     <Card className="@container/cards bg-gray-100">
-    //         <p>Microphone: {listening ? 'on' : 'off'}</p>
-    //         {/* <!-- Incoming message --> */}
-    //         <div class="flex items-start">
-    //             <div class="bg-white text-gray-800 px-4 py-2 rounded-lg rounded-bl-none shadow">
-    //                 {transcript}
-    //             </div>
-    //         </div>
+        </div>
+    )
 
-    //         {/* <!-- Outgoing message --> */}
-    //         {/* <div class="flex justify-end">
-    //             <div class="bg-blue-500 text-white px-4 py-2 rounded-lg rounded-br-none shadow">
-    //                 I'm good! You?
-    //             </div>
-    //         </div> */}
-
-    //         <Button onClick={() => SpeechRecognition.startListening({ continuous: true })}>Start</Button>
-    //         <Button onClick={SpeechRecognition.stopListening}>Stop</Button>
-    //         <Button onClick={resetTranscript}>Reset</Button>
-    //         <Button onClick={CallGif}>CallGif</Button>
-    //         <Input type="text" placeholder="Type Message" />
-    //     </Card>
-    // );
 };
 
 export default ChatPage;

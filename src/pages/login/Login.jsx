@@ -18,6 +18,7 @@ const Login = () => {
     // console.log(isOnline, "afasf")
     const navigate = useNavigate();
     // const { userInfo, setUserInfo } = useAuth()
+    const [apiError, setApiError] = useState('')
     const { userInfo } = useAuthStore()
     const setUser = useAuthStore((state) => state.setUser);
     const schema = yup.object().shape({
@@ -51,8 +52,6 @@ const Login = () => {
             // })
             // const response = await axios.get(`${env.VITE_SERVER_URL}`)
             // console.log(response, "responsee")
-
-
         }
         apicall()
     }, [])
@@ -79,7 +78,8 @@ const Login = () => {
 
             if (response2.data.message == "Login successful") {
                 console.log(response2.data)
-                localStorage.setItem('UserInfo', JSON.stringify(response2.data))
+                // localStorage.setItem('UserInfo', JSON.stringify(response2.data))
+                // sessionStorage.setItem('UserInfo', JSON.stringify(response.data))
                 setUser(response2.data)
                 navigate('/chat')
             }
@@ -88,16 +88,25 @@ const Login = () => {
     }
 
     const Login = async (data) => {
-        const response = await axios.post(`${env.VITE_SERVER_LURL}login/`, data)
+        try {
+            const response = await axios.post(`${env.VITE_SERVER_LURL}login/`, data)
 
-        if (response.data.message == "Login successful") {
+            if (response.data.message == "Login successful") {
 
-            localStorage.setItem('UserInfo', JSON.stringify(response.data))
-
-            // setUserInfo(response.data)
-            setUser(response.data)
-            navigate('/chat')
+                // localStorage.setItem('UserInfo', JSON.stringify(response.data))
+                // sessionStorage.setItem('UserInfo', JSON.stringify(response.data))
+                // setUserInfo(response.data)
+                setUser(response.data)
+                navigate('/chat')
+            } else {
+                setApiError(response.data.message)
+            }
+        } catch (error) {
+            if (error) {
+                setApiError(error.response.data.message)
+            }
         }
+
     }
 
     return (
@@ -166,8 +175,8 @@ const Login = () => {
                                 />
                             </div>
                         </div>
-
                         <div>
+                            <p className="mt-1 text-center text-sm text-red-600">{apiError}</p>
                             <button
                                 type="submit"
                                 className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"

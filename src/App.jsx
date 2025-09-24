@@ -36,25 +36,25 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* <Route element={<PublicRoutes />}> */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="*" element={<h1>Page not found</h1>} />
-            {/* </Route> */}
+      {/* <AuthProvider> */}
+      <BrowserRouter>
+        <Routes>
+          {/* <Route element={<PublicRoutes />}> */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="*" element={<h1>Page not found</h1>} />
+          {/* </Route> */}
 
 
-            <Route path="/chat" element={<ChatPage />} />
-            <Route path="/captureface" element={<Captureface />} />
-            <Route path="/facecapture" element={<FaceCapture />} />
-            {/* <Route element={<PrivateRoutes />}> */}
-            {/* </Route> */}
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/captureface" element={<Captureface />} />
+          <Route path="/facecapture" element={<FaceCapture />} />
+          {/* <Route element={<PrivateRoutes />}> */}
+          {/* </Route> */}
+        </Routes>
+      </BrowserRouter>
+      {/* </AuthProvider> */}
     </QueryClientProvider>
   )
 }

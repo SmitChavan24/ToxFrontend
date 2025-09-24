@@ -6,13 +6,14 @@ const useAuthStore = create((set, get) => {
         history: [],
 
         setUser: (userInfo) => {
-
-            // localStorage.setItem("UserInfo", JSON.stringify(userInfo?.payload));
+            // console.log(userInfo.user, "dada")
+            sessionStorage.setItem("UserInfo", JSON.stringify(userInfo));
             set({ userInfo });
         },
 
         setHistory: (history) => {
-            localStorage.setItem("Husers", JSON.stringify(history));
+            // localStorage.setItem("Husers", JSON.stringify(history));
+            sessionStorage.setItem('Husers', JSON.stringify(history))
             set({ history });
         },
 
@@ -21,8 +22,8 @@ const useAuthStore = create((set, get) => {
         },
 
         loadFromLocalStorage: () => {
-            const storedUser = localStorage.getItem("UserInfo");
-            const storedHistory = localStorage.getItem("Husers");
+            const storedUser = sessionStorage.getItem("UserInfo");
+            const storedHistory = sessionStorage.getItem("Husers");
 
             set({
                 userInfo: storedUser ? JSON.parse(storedUser) : null,
