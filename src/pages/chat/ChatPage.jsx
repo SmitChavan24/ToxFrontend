@@ -332,9 +332,21 @@ const ChatPage = ({ }) => {
                         alt="User"
                         className="h-10 w-10 rounded-full ring-2 ring-blue-500/40"
                     />
-                    <span className="text-gray-800 dark:text-gray-200 font-medium">
-                        {userInfo?.user?.name}
-                    </span>
+
+                    <div className="flex flex-col">
+                        <span className="text-gray-800 dark:text-gray-200 font-medium">
+                            {userInfo?.user?.name}
+                        </span>
+                        <button
+                            onClick={() => {
+                                navigate('/profile')
+                            }}
+                            className="text-blue-500 text-sm hover:underline mt-1"
+                        >
+                            Edit Profile
+                        </button>
+                    </div>
+
                     <button
                         onClick={logoutuser}
                         className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition dark:text-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
@@ -343,6 +355,7 @@ const ChatPage = ({ }) => {
                     </button>
                 </div>
             </div>
+
 
 
             {/* 🔵 Main Content */}

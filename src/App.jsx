@@ -11,6 +11,7 @@ import ChatPage from './pages/chat/ChatPage'
 import FaceCapture from './pages/landing/FaceCapture'
 import PublicRoutes from './utils/routes/Publicroute'
 import useAuthStore from '../store/store'
+import ProfilePage from './pages/chat/Profile'
 // navigator.serviceWorker.register("sw.js");
 
 const queryClient = new QueryClient({
@@ -48,6 +49,7 @@ const App = () => {
 
 
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/captureface" element={<Captureface />} />
           <Route path="/facecapture" element={<FaceCapture />} />
           {/* <Route element={<PrivateRoutes />}> */}
