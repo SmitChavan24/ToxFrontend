@@ -85,7 +85,9 @@ const ChatPage = ({ }) => {
 
         socket.on("receive_message", (data) => {
             console.log(data, 'receive_messagex ')
-
+            if (data.sender) {
+                SetHistory(data.sender)
+            }
             if (!selectedUser || selectedUser?.id !== data?.sender?.id) {
                 setUnreadCounts((prev) => ({
                     ...prev,
