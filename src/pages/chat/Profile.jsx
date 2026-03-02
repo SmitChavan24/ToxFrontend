@@ -4,6 +4,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import useAuthStore from "../../../store/store";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Camera, X } from "lucide-react";
 
 // Validation schema
 const profileSchema = yup.object().shape({
@@ -37,7 +38,7 @@ const profileSchema = yup.object().shape({
 });
 
 export default function ProfilePage() {
-    const navigate = useNavigate()
+    const navigate = useNavigate();
     const [profilePic, setProfilePic] = useState("");
     const setUser = useAuthStore((state) => state.setUser);
     const {
@@ -54,7 +55,7 @@ export default function ProfilePage() {
     useEffect(() => {
         const storedData = sessionStorage.getItem("UserInfo");
         const existingData = storedData ? JSON.parse(storedData) : {};
-        const existingUser = existingData?.user || {}; // ✅ fallback to {}
+        const existingUser = existingData?.user || {};
 
         const hasChanged =
             profilePic !== (existingUser.picture || "") ||
@@ -90,128 +91,226 @@ export default function ProfilePage() {
     };
 
     const onSubmit = (data) => {
-        // Get the full stored object from sessionStorage
         const storedData = sessionStorage.getItem("UserInfo");
         let existingData = storedData ? JSON.parse(storedData) : {};
 
-        // Merge the existing user with updated fields
         const updatedUser = {
-            ...existingData.user,   // keep old fields (_id, id, createddate, password, __v)
-            ...data,                // overwrite with new fields from form
-            picture: profilePic,    // update picture
-            dob: data.dob           // ensure dob comes from form (ISO format if needed)
+            ...existingData.user,
+            ...data,
+            picture: profilePic,
+            dob: data.dob,
         };
 
-        // Build the full object with token and message preserved
         const updatedData = {
             ...existingData,
-            user: updatedUser
+            user: updatedUser,
         };
 
-        // Save to Zustand and sessionStorage
         setUser(updatedData);
-        // sessionStorage.setItem("UserInfo", JSON.stringify(updatedData));
-
-        navigate('/chat');
+        navigate("/chat");
     };
 
+    const goBack = () => navigate("/chat");
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex justify-center items-start py-20">
-            <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl w-full max-w-4xl p-10">
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">
-                    Edit Profile
-                </h2>
+        <div className="min-h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900 flex flex-col">
+            {/* ─── Sticky Header ─── */}
+            <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between shrink-0 sticky top-0 z-20 shadow-sm">
+                <button
+                    onClick={goBack}
+                    className="flex items-center gap-2 p-2 -ml-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition"
+                >
+                    <ArrowLeft className="h-5 w-5" />
+                    <span className="text-sm font-medium hidden sm:inline">
+                        Back to Chat
+                    </span>
+                </button>
 
-                <div className="flex flex-col md:flex-row gap-8">
-                    {/* Profile Picture */}
-                    <div className="flex flex-col items-center md:w-1/3">
-                        <div className="relative">
-                            <img
-                                src={profilePic}
-                                // alt="Profile"
-                                className="h-32 w-32 rounded-full object-cover border-4 border-blue-400"
-                            />
-                            <label className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full cursor-pointer hover:bg-blue-600 transition">
-                                <input type="file" accept="image/*" className="hidden" onChange={handlePictureChange} />
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-5 w-5 text-white"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                            </label>
+                <h1 className="text-base font-bold text-gray-800 dark:text-white">
+                    Edit Profile
+                </h1>
+
+                <button
+                    onClick={goBack}
+                    className="p-2 -mr-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition"
+                    title="Close"
+                >
+                    <X className="h-5 w-5" />
+                </button>
+            </header>
+
+            {/* ─── Scrollable Content ─── */}
+            <div className="flex-1 overflow-y-auto">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+                    <div className="bg-white dark:bg-gray-800 shadow-lg rounded-2xl w-full p-6 sm:p-10">
+                        <div className="flex flex-col md:flex-row gap-8">
+                            {/* ─── Profile Picture ─── */}
+                            <div className="flex flex-col items-center md:w-1/3">
+                                <div className="relative group">
+                                    {profilePic ? (
+                                        <img
+                                            src={profilePic}
+                                            alt="Profile"
+                                            className="h-28 w-28 sm:h-32 sm:w-32 rounded-full object-cover border-4 border-blue-400 dark:border-blue-500 shadow-md"
+                                        />
+                                    ) : (
+                                        <div className="h-28 w-28 sm:h-32 sm:w-32 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 border-4 border-blue-400 dark:border-blue-500 shadow-md flex items-center justify-center">
+                                            <span className="text-white text-3xl font-bold">
+                                                {watchAllFields?.name
+                                                    ? watchAllFields.name
+                                                        .split(" ")
+                                                        .map((n) => n[0])
+                                                        .join("")
+                                                        .toUpperCase()
+                                                        .slice(0, 2)
+                                                    : "?"}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Camera overlay */}
+                                    <label className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/30 flex items-center justify-center cursor-pointer transition-all duration-200">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handlePictureChange}
+                                        />
+                                        <Camera className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                                    </label>
+
+                                    {/* Small camera badge */}
+                                    <label className="absolute bottom-0 right-0 bg-blue-500 p-2 rounded-full cursor-pointer hover:bg-blue-600 active:scale-90 transition shadow-md group-hover:scale-110">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handlePictureChange}
+                                        />
+                                        <Camera className="h-4 w-4 text-white" />
+                                    </label>
+                                </div>
+
+                                <p className="mt-3 text-xs text-gray-400 dark:text-gray-500 text-center">
+                                    Tap to change photo
+                                </p>
+                            </div>
+
+                            {/* ─── Form ─── */}
+                            <form
+                                className="md:w-2/3 flex flex-col gap-4"
+                                onSubmit={handleSubmit(onSubmit)}
+                            >
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {/* Name */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
+                                            Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            {...register("name")}
+                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        />
+                                        {errors.name && (
+                                            <p className="text-red-500 text-xs mt-1.5">
+                                                {errors.name.message}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Email */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
+                                            Email
+                                        </label>
+                                        <input
+                                            type="email"
+                                            {...register("email")}
+                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        />
+                                        {errors.email && (
+                                            <p className="text-red-500 text-xs mt-1.5">
+                                                {errors.email.message}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Phone */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
+                                            Phone
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            {...register("phone")}
+                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        />
+                                        {errors.phone && (
+                                            <p className="text-red-500 text-xs mt-1.5">
+                                                {errors.phone.message}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Date of Birth */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
+                                            Date of Birth
+                                        </label>
+                                        <input
+                                            type="date"
+                                            {...register("dob")}
+                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        />
+                                        {errors.dob && (
+                                            <p className="text-red-500 text-xs mt-1.5">
+                                                {errors.dob.message}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Gender */}
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1.5">
+                                            Gender
+                                        </label>
+                                        <select
+                                            {...register("gender")}
+                                            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        >
+                                            <option value="">Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                        {errors.gender && (
+                                            <p className="text-red-500 text-xs mt-1.5">
+                                                {errors.gender.message}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* ─── Action Buttons ─── */}
+                                <div className="flex flex-col sm:flex-row gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                    <button
+                                        type="submit"
+                                        className="flex-1 py-3 px-6 bg-blue-600 text-white rounded-xl hover:bg-blue-700 active:scale-[0.98] transition font-medium shadow-sm"
+                                    >
+                                        Save Changes
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={goBack}
+                                        className="flex-1 py-3 px-6 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 active:scale-[0.98] transition font-medium"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
-
-                    {/* Form */}
-                    <form className="md:w-2/3 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-gray-700 dark:text-gray-200 mb-1">Name</label>
-                                <input
-                                    type="text"
-                                    {...register("name")}
-                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                                {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
-                            </div>
-
-                            <div>
-                                <label className="block text-gray-700 dark:text-gray-200 mb-1">Email</label>
-                                <input
-                                    type="email"
-                                    {...register("email")}
-                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                                {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
-                            </div>
-
-                            <div>
-                                <label className="block text-gray-700 dark:text-gray-200 mb-1">Phone</label>
-                                <input
-                                    type="tel"
-                                    {...register("phone")}
-                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                                {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>}
-                            </div>
-
-                            <div>
-                                <label className="block text-gray-700 dark:text-gray-200 mb-1">Date of Birth</label>
-                                <input
-                                    type="date"
-                                    {...register("dob")}
-                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                                {errors.dob && <p className="text-red-500 text-sm mt-1">{errors.dob.message}</p>}
-                            </div>
-
-                            <div className="md:col-span-2">
-                                <label className="block text-gray-700 dark:text-gray-200 mb-1">Gender</label>
-                                <select
-                                    {...register("gender")}
-                                    className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                >
-                                    <option value="">Select Gender</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                                {errors.gender && <p className="text-red-500 text-sm mt-1">{errors.gender.message}</p>}
-                            </div>
-                        </div>
-
-                        <button
-                            type="submit"
-                            className="mt-6 py-3 px-6 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium"
-                        >
-                            Save Changes
-                        </button>
-                    </form>
                 </div>
             </div>
         </div>
