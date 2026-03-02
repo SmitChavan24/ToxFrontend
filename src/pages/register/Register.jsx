@@ -92,7 +92,7 @@ const Register = () => {
         } else {
             // console.log('Final Submission', data);
             try {
-                const response2 = await axios.post(`${env.VITE_SERVER_LURL}register/`, data
+                const response2 = await axios.post(`${env.VITE_SERVER_URL}register/`, data
                     ,
                     {
                         headers: {
