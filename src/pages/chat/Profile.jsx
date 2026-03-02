@@ -44,10 +44,27 @@ export default function ProfilePage() {
         register,
         handleSubmit,
         setValue,
+        watch,
         formState: { errors },
     } = useForm({
         resolver: yupResolver(profileSchema),
     });
+    const watchAllFields = watch();
+
+    useEffect(() => {
+        const storedData = sessionStorage.getItem("UserInfo");
+        const existingData = storedData ? JSON.parse(storedData) : {};
+        const existingUser = existingData?.user || {}; // ✅ fallback to {}
+
+        const hasChanged =
+            profilePic !== (existingUser.picture || "") ||
+            Object.keys(watchAllFields).some(
+                (key) => (watchAllFields[key] || "") !== (existingUser[key] || "")
+            );
+
+        console.log(hasChanged, "afdaf");
+        console.log(watchAllFields, existingUser);
+    }, [watchAllFields, profilePic]);
 
     // Load user data from sessionStorage
     useEffect(() => {
@@ -111,7 +128,7 @@ export default function ProfilePage() {
                     <div className="flex flex-col items-center md:w-1/3">
                         <div className="relative">
                             <img
-                                src={profilePic || "https://via.placeholder.com/150"}
+                                src={profilePic}
                                 // alt="Profile"
                                 className="h-32 w-32 rounded-full object-cover border-4 border-blue-400"
                             />
