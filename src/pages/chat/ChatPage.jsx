@@ -549,7 +549,11 @@ const ChatPage = () => {
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Search Results</p>
                             {usersData.filter((u) => u?.id !== userInfo?.user?.id).map((user) => (
                                 <button key={user?.id} onClick={() => SetHistory(user)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 active:bg-blue-100 transition mb-1">
-                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0">{getInitials(user?.name)}</div>
+                                    {user?.picture ? (
+                                        <img src={user.picture} alt={user?.name} className="h-10 w-10 rounded-full object-cover shrink-0" />
+                                    ) : (
+                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0">{getInitials(user?.name)}</div>
+                                    )}
                                     <div className="text-left min-w-0">
                                         <p className="text-sm font-semibold text-gray-800 truncate">{user?.name}</p>
                                         <p className="text-xs text-gray-400 truncate">{user?.email}</p>
@@ -588,9 +592,13 @@ const ChatPage = () => {
                                             className="flex items-center gap-3 flex-1 min-w-0 text-left"
                                         >
                                             <div className="relative shrink-0">
-                                                <div className={`h-11 w-11 rounded-full flex items-center justify-center text-white text-sm font-bold ${isSelected ? "bg-gradient-to-br from-blue-600 to-violet-600" : "bg-gradient-to-br from-gray-400 to-gray-500"}`}>
-                                                    {getInitials(user?.name)}
-                                                </div>
+                                                {user?.picture ? (
+                                                    <img src={user.picture} alt={user?.name} className={`h-11 w-11 rounded-full object-cover ${isSelected ? "ring-2 ring-blue-500" : ""}`} />
+                                                ) : (
+                                                    <div className={`h-11 w-11 rounded-full flex items-center justify-center text-white text-sm font-bold ${isSelected ? "bg-gradient-to-br from-blue-600 to-violet-600" : "bg-gradient-to-br from-gray-400 to-gray-500"}`}>
+                                                        {getInitials(user?.name)}
+                                                    </div>
+                                                )}
                                                 <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white transition-colors ${user?.status === "online" ? "bg-green-500" : "bg-gray-300"}`} />
                                             </div>
                                             <div className="flex-1 min-w-0">
@@ -636,7 +644,11 @@ const ChatPage = () => {
                                         <ArrowLeft className="h-5 w-5 text-gray-600" />
                                     </button>
                                     <div className="relative shrink-0">
-                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center text-white text-sm font-bold">{getInitials(selectedUser.name)}</div>
+                                        {selectedUser?.picture ? (
+                                            <img src={selectedUser.picture} alt={selectedUser?.name} className="h-10 w-10 rounded-full object-cover" />
+                                        ) : (
+                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center text-white text-sm font-bold">{getInitials(selectedUser.name)}</div>
+                                        )}
                                         <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${history.find((u) => u?.id === selectedUser?.id)?.status === "online" ? "bg-green-500" : "bg-gray-300"}`} />
                                     </div>
                                     <div className="min-w-0">
