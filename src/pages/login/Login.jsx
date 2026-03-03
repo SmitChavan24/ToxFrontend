@@ -17,6 +17,7 @@ const Login = () => {
     const { isOnline } = useNetworkStatus();
     const navigate = useNavigate();
     const [apiError, setApiError] = useState('')
+    const [loading, setLoading] = useState(false)
     const { userInfo } = useAuthStore()
     const setUser = useAuthStore((state) => state.setUser);
 
@@ -41,6 +42,7 @@ const Login = () => {
     const GoogleDecode = async (creds) => {
         try {
             setApiError(''); // Clear previous errors
+            setLoading(true);
             const response = await axios.post(
                 `${env.VITE_SERVER_URL}google-auth/`,
                 creds,
@@ -60,11 +62,14 @@ const Login = () => {
             setApiError(
                 error?.response?.data?.message || "Google login failed. Please try again."
             );
+        } finally {
+            setLoading(false);
         }
     };
 
     const Login = async (data) => {
         try {
+            setLoading(true);
             const response = await axios.post(`${env.VITE_SERVER_URL}login/`, data)
             if (response.data.message === "Login successful") {
                 setUser(response.data)
@@ -76,11 +81,20 @@ const Login = () => {
             if (error) {
                 setApiError(error.response.data.message)
             }
+        } finally {
+            setLoading(false);
         }
     }
 
     return (
         <>
+            {loading && (
+                <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
+                    <img src={Logo} alt="ToX Logo" className="h-16 w-auto mb-8" />
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent mb-4"></div>
+                    <p className="text-lg font-semibold text-gray-700">Logging you in...</p>
+                </div>
+            )}
             <div className="flex min-h-full flex-1 flex-col justify-center px-6 py-12 lg:px-8">
                 <div className="sm:mx-auto sm:w-full sm:max-w-sm mt-20">
                     <img alt="Your Company" src={Logo} className="mx-auto h-10 w-auto" />

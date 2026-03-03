@@ -1,9 +1,19 @@
-import { Outlet, Navigate, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../../context/Authcontext'
-import { useEffect } from 'react'
+import { Outlet, Navigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import useAuthStore from '../../../../store/store'
 
 const PrivateRoutes = () => {
-    const { userInfo } = useAuth()
+    const { userInfo, loadFromLocalStorage } = useAuthStore()
+    const [isRestoring, setIsRestoring] = useState(!userInfo && !!localStorage.getItem('UserInfo'))
+
+    useEffect(() => {
+        if (!userInfo && localStorage.getItem('UserInfo')) {
+            loadFromLocalStorage()
+        }
+        setIsRestoring(false)
+    }, [])
+
+    if (isRestoring) return null
 
     return userInfo ? <Outlet /> : <Navigate to="/login" />
 }
