@@ -24,13 +24,13 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  // const loadFromLocalStorage = useAuthStore(state => state.loadFromLocalStorage);
+  const loadFromLocalStorage = useAuthStore(state => state.loadFromLocalStorage);
   const { userInfo, history } = useAuthStore();
   useEffect(() => {
     Notification.requestPermission((result) => {
       console.log(result);
     });
-    // loadFromLocalStorage();
+    loadFromLocalStorage();
     // console.log(userInfo, "adfafafss", history)
   }, []);
 
@@ -48,12 +48,12 @@ const App = () => {
           {/* </Route> */}
 
 
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/captureface" element={<Captureface />} />
-          <Route path="/facecapture" element={<FaceCapture />} />
-          {/* <Route element={<PrivateRoutes />}> */}
-          {/* </Route> */}
+          <Route element={<PrivateRoutes />}>
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/captureface" element={<Captureface />} />
+            <Route path="/facecapture" element={<FaceCapture />} />
+          </Route>
         </Routes>
       </BrowserRouter>
       {/* </AuthProvider> */}
