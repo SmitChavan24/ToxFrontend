@@ -66,6 +66,7 @@ const ChatPage = () => {
     const [conversationMeta, setConversationMeta] = useState({}); // { [userId]: { priority, status, tags, createdAt } }
 
     // AI State
+    const [globalAutoReply, setGlobalAutoReply] = useState(false);
     const [autoReplyUsers, setAutoReplyUsers] = useState({});
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -82,6 +83,7 @@ const ChatPage = () => {
     const checkOnlineTimerRef = useRef(null);
     const lastHistoryLengthRef = useRef(0);
     const autoReplyUsersRef = useRef(autoReplyUsers);
+    const globalAutoReplyRef = useRef(globalAutoReply);
     const messagesRef = useRef(messages);
 
     const {
@@ -116,6 +118,7 @@ const ChatPage = () => {
     useEffect(() => { historyRef.current = history; }, [history]);
     useEffect(() => { selectedUserRef.current = selectedUser; }, [selectedUser]);
     useEffect(() => { autoReplyUsersRef.current = autoReplyUsers; }, [autoReplyUsers]);
+    useEffect(() => { globalAutoReplyRef.current = globalAutoReply; }, [globalAutoReply]);
     useEffect(() => { messagesRef.current = messages; }, [messages]);
 
     useEffect(() => {
@@ -214,7 +217,7 @@ const ChatPage = () => {
 
         const handleCheckAutoReply = async (data) => {
             const { senderId, senderInfo, message: incomingMsg } = data;
-            if (!autoReplyUsersRef.current[senderId]) return;
+            if (!autoReplyUsersRef.current[senderId] && !globalAutoReplyRef.current) return;
             if (incomingMsg?.fileUrl || incomingMsg?.isGif) return;
             if (incomingMsg?.isAutoReply) return;
 
@@ -577,6 +580,19 @@ const ChatPage = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {/* Global Auto-Reply Toggle */}
+                    <button
+                        onClick={() => setGlobalAutoReply(!globalAutoReply)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
+                            globalAutoReply
+                                ? 'bg-violet-50 text-violet-700 border-violet-200'
+                                : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                        }`}
+                        title={globalAutoReply ? 'Auto-Reply is ON for all conversations' : 'Turn ON auto-reply for all conversations'}
+                    >
+                        <Bot className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">{globalAutoReply ? 'Bot ON' : 'Bot OFF'}</span>
+                    </button>
                     <button onClick={() => navigate("/profile")} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition">
                         <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
                             {getInitials(userInfo?.user?.name)}
