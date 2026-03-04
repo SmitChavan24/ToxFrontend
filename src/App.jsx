@@ -6,6 +6,7 @@ import Register from './pages/register/Register'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import ChatPage from './pages/chat/ChatPage'
 import ProfilePage from './pages/chat/Profile'
+import CustomerChat from './pages/support/CustomerChat'
 import useAuthStore from '../store/store'
 
 const queryClient = new QueryClient({
@@ -36,6 +37,7 @@ const App = () => {
           <Route path="/dashboard" element={<ChatPage />} />
           {/* Keep /chat as alias for backward compat */}
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/support/chat" element={<CustomerChat />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="*" element={
             <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center" style={{ fontFamily: "'Inter', sans-serif" }}>
