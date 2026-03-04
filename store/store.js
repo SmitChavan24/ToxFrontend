@@ -6,18 +6,18 @@ const useAuthStore = create((set, get) => {
         history: [],
 
         setUser: (userInfo) => {
-            // console.log(userInfo.user, "dada")
             sessionStorage.setItem("UserInfo", JSON.stringify(userInfo));
             set({ userInfo });
         },
 
         setHistory: (history) => {
-            // localStorage.setItem("Husers", JSON.stringify(history));
             sessionStorage.setItem('Husers', JSON.stringify(history))
             set({ history });
         },
 
         removeUser: () => {
+            sessionStorage.removeItem("UserInfo");
+            sessionStorage.removeItem("Husers");
             set({ userInfo: null, history: [] });
         },
 
