@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 import axios from "axios";
-import Profile from "../../assets/images/profile.png";
 import { useNavigate } from "react-router-dom";
 import useAuthStore from "../../../store/store";
 import { showNotification } from "../../screens/components/shownotification";
@@ -12,8 +11,11 @@ import {
     ArrowLeft,
     Bot,
     BotOff,
+    CheckCircle2,
     ChevronDown,
     ChevronUp,
+    Headphones,
+    Info,
     Loader2,
     LogOut,
     Menu,
@@ -22,12 +24,16 @@ import {
     Paperclip,
     Search,
     Send,
+    Settings,
     Sparkles,
     User,
     Wand2,
     X,
     Zap,
 } from "lucide-react";
+import CustomerInfoPanel from "../../components/CustomerInfoPanel";
+import ConversationFilters from "../../components/ConversationFilters";
+import CannedResponses from "../../components/CannedResponses";
 
 const env = await import.meta.env;
 
@@ -53,8 +59,14 @@ const ChatPage = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
 
-    // ✅ AI State
-    const [autoReplyUsers, setAutoReplyUsers] = useState({});   // { [userId]: true/false }
+    // Support-specific state
+    const [activeFilter, setActiveFilter] = useState("all");
+    const [showCannedResponses, setShowCannedResponses] = useState(false);
+    const [showCustomerInfo, setShowCustomerInfo] = useState(false);
+    const [conversationMeta, setConversationMeta] = useState({}); // { [userId]: { priority, status, tags, createdAt } }
+
+    // AI State
+    const [autoReplyUsers, setAutoReplyUsers] = useState({});
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -117,13 +129,44 @@ const ChatPage = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, selectedUser]);
 
-    // ✅ Clear suggestions when switching users
     useEffect(() => {
         setSuggestions([]);
         setShowSuggestions(false);
         setEnhancedMessage("");
         setShowEnhanceMenu(false);
+        setShowCannedResponses(false);
     }, [selectedUser?.id]);
+
+    // Initialize conversation meta for new conversations
+    useEffect(() => {
+        history.forEach((user) => {
+            if (!conversationMeta[user?.id]) {
+                setConversationMeta((prev) => ({
+                    ...prev,
+                    [user.id]: {
+                        priority: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)],
+                        status: 'open',
+                        tags: ['support'],
+                        createdAt: new Date().toLocaleDateString(),
+                        messageCount: (messages[user?.id] || []).length,
+                    },
+                }));
+            }
+        });
+    }, [history]);
+
+    // Update message counts
+    useEffect(() => {
+        if (selectedUser?.id) {
+            setConversationMeta((prev) => ({
+                ...prev,
+                [selectedUser.id]: {
+                    ...prev[selectedUser.id],
+                    messageCount: (messages[selectedUser.id] || []).length,
+                },
+            }));
+        }
+    }, [messages, selectedUser?.id]);
 
     // Socket connection
     useEffect(() => {
@@ -169,46 +212,37 @@ const ChatPage = () => {
             });
         };
 
-        // ✅ Handle auto-reply trigger from server
         const handleCheckAutoReply = async (data) => {
             const { senderId, senderInfo, message: incomingMsg } = data;
-
             if (!autoReplyUsersRef.current[senderId]) return;
             if (incomingMsg?.fileUrl || incomingMsg?.isGif) return;
-            // Don't auto-reply to auto-replies (prevent loops)
             if (incomingMsg?.isAutoReply) return;
 
             try {
                 setLoadingAutoReply(true);
-
                 const currentMessages = messagesRef.current[senderId] || [];
-
                 const response = await axios.post(
                     `${env.VITE_SERVER_URL}ai/auto-reply`,
                     {
                         incomingMessage: incomingMsg?.text || "",
                         conversationHistory: currentMessages.slice(-10),
-                        userName: senderInfo?.name || "User",
-                        myName: userInfo?.user?.name || "Me",
+                        userName: senderInfo?.name || "Customer",
+                        myName: userInfo?.user?.name || "Support Agent",
                         senderId: senderId,
                     }
                 );
-
                 const replyText = response.data.reply;
                 if (!replyText) return;
-
                 const smessage = {
                     text: `🤖 ${replyText}`,
                     timestamp: new Date(),
                     isAutoReply: true,
                 };
-
                 socket.emit("send_message", {
                     toUserId: senderId,
                     message: smessage,
                     from: userInfo.user,
                 });
-
                 setMessages((prev) => ({
                     ...prev,
                     [senderId]: [
@@ -217,7 +251,6 @@ const ChatPage = () => {
                     ],
                 }));
             } catch (error) {
-                // Rate limited — silently skip, don't crash
                 if (error?.response?.status === 429) {
                     console.log("Auto-reply skipped (rate limited)");
                 } else {
@@ -268,11 +301,6 @@ const ChatPage = () => {
     // ──────────────────────────────────────────────
     // AI Functions
     // ──────────────────────────────────────────────
-
-    // ──────────────────────────────────────────────
-    // AI Functions (with rate limit handling)
-    // ──────────────────────────────────────────────
-
     const toggleAutoReply = (userId) => {
         setAutoReplyUsers((prev) => ({
             ...prev,
@@ -284,7 +312,6 @@ const ChatPage = () => {
         if (!selectedUser) return;
         setLoadingSuggestions(true);
         setShowSuggestions(true);
-
         try {
             const currentMessages = messages[selectedUser.id] || [];
             const response = await axios.post(
@@ -292,7 +319,7 @@ const ChatPage = () => {
                 {
                     conversationHistory: currentMessages.slice(-10),
                     userName: selectedUser.name,
-                    myName: userInfo?.user?.name || "Me",
+                    myName: userInfo?.user?.name || "Support Agent",
                 }
             );
             setSuggestions(response.data.suggestions || []);
@@ -308,7 +335,6 @@ const ChatPage = () => {
     };
 
     const useSuggestion = (text) => {
-        // Don't use error/status messages as actual replies
         if (text.startsWith("⏳") || text.startsWith("❌")) return;
         setMessage(text);
         setShowSuggestions(false);
@@ -318,7 +344,6 @@ const ChatPage = () => {
     const enhanceMessage = async (style) => {
         if (!message.trim()) return;
         setLoadingEnhance(true);
-
         try {
             const response = await axios.post(
                 `${env.VITE_SERVER_URL}ai/enhance`,
@@ -335,7 +360,6 @@ const ChatPage = () => {
     };
 
     const applyEnhanced = () => {
-        // Don't apply error messages
         if (enhancedMessage.startsWith("⏳")) return;
         setMessage(enhancedMessage);
         setEnhancedMessage("");
@@ -343,7 +367,26 @@ const ChatPage = () => {
     };
 
     // ──────────────────────────────────────────────
-    // Existing Helpers
+    // Support Actions
+    // ──────────────────────────────────────────────
+    const resolveConversation = () => {
+        if (!selectedUser) return;
+        setConversationMeta((prev) => ({
+            ...prev,
+            [selectedUser.id]: { ...prev[selectedUser.id], status: 'resolved' },
+        }));
+    };
+
+    const setPriority = (priority) => {
+        if (!selectedUser) return;
+        setConversationMeta((prev) => ({
+            ...prev,
+            [selectedUser.id]: { ...prev[selectedUser.id], priority },
+        }));
+    };
+
+    // ──────────────────────────────────────────────
+    // Helpers
     // ──────────────────────────────────────────────
     const checkOnlineUsers = useCallback(async () => {
         try {
@@ -373,11 +416,11 @@ const ChatPage = () => {
 
     const Notify = (userId, status) => {
         const user = historyRef.current.find((u) => u?.id === userId);
-        showNotification("Hey", `👤 ${user?.name || "A user"} is now ${status}.`);
+        showNotification("HelpWave", `👤 ${user?.name || "A customer"} is now ${status}.`);
     };
 
     const MNotification = (user, data) => {
-        const text = `👤 ${user?.name || "A user"} has sent you a message.`;
+        const text = `New message from ${user?.name || "a customer"}`;
         if (data.isGif) {
             new Notification(text, { body: "", icon: extractGifUrlFromText(data.text) });
         } else {
@@ -454,6 +497,7 @@ const ChatPage = () => {
         setShowEnhanceMenu(false);
         setSuggestions([]);
         setShowSuggestions(false);
+        setShowCannedResponses(false);
     };
 
     const handleSendGif = (gifUrl) => {
@@ -477,24 +521,45 @@ const ChatPage = () => {
         return new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     };
 
+    // ──────────────────────────────────────────────
+    // Filtered conversations
+    // ──────────────────────────────────────────────
+    const filteredHistory = history.filter((user) => {
+        if (activeFilter === 'all') return true;
+        const meta = conversationMeta[user?.id];
+        return meta?.status === activeFilter;
+    });
+
+    const filterCounts = {
+        all: history.length,
+        open: history.filter((u) => conversationMeta[u?.id]?.status === 'open').length,
+        pending: history.filter((u) => conversationMeta[u?.id]?.status === 'pending').length,
+        resolved: history.filter((u) => conversationMeta[u?.id]?.status === 'resolved').length,
+    };
+
     const chatMessages = messages[selectedUser?.id] || [];
     const totalUnread = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
 
     const enhanceStyles = [
         { label: "Professional", value: "professional", icon: "💼" },
-        { label: "Casual", value: "casual", icon: "😎" },
-        { label: "Friendly", value: "friendly", icon: "😊" },
-        { label: "Funny", value: "funny", icon: "😂" },
-        { label: "Formal", value: "formal", icon: "📝" },
+        { label: "Empathetic", value: "friendly", icon: "💛" },
+        { label: "Concise", value: "formal", icon: "✂️" },
+        { label: "Detailed", value: "casual", icon: "📋" },
+    ];
+
+    const priorityOptions = [
+        { value: 'high', label: '🔴 High', color: 'text-red-600' },
+        { value: 'medium', label: '🟡 Medium', color: 'text-amber-600' },
+        { value: 'low', label: '🟢 Low', color: 'text-green-600' },
     ];
 
     // ──────────────────────────────────────────────
     // Render
     // ──────────────────────────────────────────────
     return (
-        <div className="flex flex-col h-screen h-[100dvh] bg-gray-50">
+        <div className="flex flex-col h-screen h-[100dvh] bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
             {/* Top Nav */}
-            <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0 z-30 shadow-sm">
+            <header className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between shrink-0 z-30 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="md:hidden relative p-2 -ml-2 rounded-lg hover:bg-gray-100 active:bg-gray-200 transition">
                         <Menu className="h-5 w-5 text-gray-700" />
@@ -504,15 +569,22 @@ const ChatPage = () => {
                             </span>
                         )}
                     </button>
-                    <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-transparent">TOX</h1>
+                    <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                            <Headphones className="h-4 w-4 text-white" />
+                        </div>
+                        <h1 className="text-lg font-bold tracking-tight text-gray-900">HelpWave</h1>
+                    </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button onClick={() => navigate("/profile")} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-100 transition">
-                        <img src={userInfo?.user?.picture || Profile} alt="User" className="h-8 w-8 rounded-full object-cover ring-2 ring-blue-500/30" />
+                <div className="flex items-center gap-2">
+                    <button onClick={() => navigate("/profile")} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition">
+                        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
+                            {getInitials(userInfo?.user?.name)}
+                        </div>
                         <span className="hidden sm:block text-sm font-medium text-gray-700 max-w-[120px] truncate">{userInfo?.user?.name}</span>
                     </button>
-                    <button onClick={logoutuser} className="p-2 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition" title="Logout">
-                        <LogOut className="h-5 w-5" />
+                    <button onClick={logoutuser} className="p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition" title="Logout">
+                        <LogOut className="h-4 w-4" />
                     </button>
                 </div>
             </header>
@@ -524,17 +596,17 @@ const ChatPage = () => {
                 )}
 
                 {/* Sidebar */}
-                <aside className={`fixed md:relative z-40 md:z-auto h-[calc(100dvh-57px)] md:h-auto w-[85%] max-w-[360px] md:w-80 lg:w-96 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
-                    <div className="p-4 border-b border-gray-100">
-                        <div className="flex items-center justify-between mb-3">
-                            <h2 className="text-lg font-bold text-gray-800">Chats</h2>
+                <aside className={`fixed md:relative z-40 md:z-auto h-[calc(100dvh-49px)] md:h-auto w-[85%] max-w-[360px] md:w-80 lg:w-96 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
+                    <div className="p-3 border-b border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                            <h2 className="text-base font-bold text-gray-800">Conversations</h2>
                             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-1 rounded-lg hover:bg-gray-100">
                                 <X className="h-5 w-5 text-gray-500" />
                             </button>
                         </div>
-                        <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all duration-200 ${isSearchFocused ? "border-blue-500 ring-2 ring-blue-500/20 bg-white" : "border-gray-200 bg-gray-50"}`}>
+                        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-200 ${isSearchFocused ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-white" : "border-gray-200 bg-gray-50"}`}>
                             <Search className="h-4 w-4 text-gray-400 shrink-0" />
-                            <input type="text" placeholder="Search by name, email, or phone..." value={search} onChange={handleSearch} onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none" />
+                            <input type="text" placeholder="Search customers..." value={search} onChange={handleSearch} onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none" />
                             {search && (
                                 <button onClick={() => { setSearch(""); setUsersData([]); }} className="p-0.5 rounded-full hover:bg-gray-200">
                                     <X className="h-3.5 w-3.5 text-gray-400" />
@@ -543,13 +615,22 @@ const ChatPage = () => {
                         </div>
                     </div>
 
+                    {/* Filters */}
+                    <div className="border-b border-gray-100">
+                        <ConversationFilters
+                            activeFilter={activeFilter}
+                            onFilterChange={setActiveFilter}
+                            counts={filterCounts}
+                        />
+                    </div>
+
                     {/* Search Results */}
                     {usersData.filter((u) => u?.id !== userInfo?.user?.id).length > 0 && (
                         <div className="px-3 pt-3">
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">Search Results</p>
                             {usersData.filter((u) => u?.id !== userInfo?.user?.id).map((user) => (
-                                <button key={user?.id} onClick={() => SetHistory(user)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-blue-50 active:bg-blue-100 transition mb-1">
-                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0">{getInitials(user?.name)}</div>
+                                <button key={user?.id} onClick={() => SetHistory(user)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-indigo-50 active:bg-indigo-100 transition mb-1">
+                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0">{getInitials(user?.name)}</div>
                                     <div className="text-left min-w-0">
                                         <p className="text-sm font-semibold text-gray-800 truncate">{user?.name}</p>
                                         <p className="text-xs text-gray-400 truncate">{user?.email}</p>
@@ -560,63 +641,65 @@ const ChatPage = () => {
                         </div>
                     )}
 
-                    {/* History */}
-                    <div className="flex-1 overflow-y-auto px-3 py-2">
-                        {history.length === 0 ? (
+                    {/* Conversation History */}
+                    <div className="flex-1 overflow-y-auto px-2 py-2">
+                        {filteredHistory.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-center px-6">
-                                <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4"><User className="h-8 w-8 text-gray-300" /></div>
-                                <p className="text-sm text-gray-400 font-medium">No conversations yet</p>
-                                <p className="text-xs text-gray-300 mt-1">Search for someone to start chatting</p>
+                                <div className="h-14 w-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                                    <User className="h-7 w-7 text-gray-300" />
+                                </div>
+                                <p className="text-sm text-gray-400 font-medium">
+                                    {activeFilter === "all" ? "No conversations yet" : `No ${activeFilter} conversations`}
+                                </p>
+                                <p className="text-xs text-gray-300 mt-1">New conversations will appear here</p>
                             </div>
                         ) : (
-                            history.map((user) => {
+                            filteredHistory.map((user) => {
                                 const isSelected = selectedUser?.id === user?.id;
                                 const unread = unreadCounts[user?.id] || 0;
                                 const lastMessages = messages[user?.id];
                                 const lastMsg = lastMessages?.[lastMessages.length - 1]?.message;
                                 const isAutoReplyOn = autoReplyUsers[user?.id];
+                                const meta = conversationMeta[user?.id] || {};
+                                const priorityDot = { high: 'bg-red-500', medium: 'bg-amber-400', low: 'bg-green-500' };
 
                                 return (
-                                    <div key={user?.id} className={`w-full flex items-center gap-3 p-3 rounded-xl transition mb-1 ${isSelected ? "bg-blue-50 border border-blue-200" : "hover:bg-gray-50 active:bg-gray-100 border border-transparent"}`}>
-                                        {/* Clickable area */}
+                                    <div key={user?.id} className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl transition mb-0.5 ${isSelected ? "bg-indigo-50 border border-indigo-200" : "hover:bg-gray-50 active:bg-gray-100 border border-transparent"}`}>
                                         <button
                                             onClick={() => {
                                                 setSelectedUser(user);
                                                 setUnreadCounts((prev) => { const u = { ...prev }; delete u[user?.id]; return u; });
                                                 if (window.innerWidth < 768) setIsSidebarOpen(false);
                                             }}
-                                            className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                                            className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
                                         >
                                             <div className="relative shrink-0">
-                                                <div className={`h-11 w-11 rounded-full flex items-center justify-center text-white text-sm font-bold ${isSelected ? "bg-gradient-to-br from-blue-600 to-violet-600" : "bg-gradient-to-br from-gray-400 to-gray-500"}`}>
+                                                <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white text-xs font-bold ${isSelected ? "bg-gradient-to-br from-indigo-600 to-violet-600" : "bg-gradient-to-br from-gray-400 to-gray-500"}`}>
                                                     {getInitials(user?.name)}
                                                 </div>
-                                                <span className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white transition-colors ${user?.status === "online" ? "bg-green-500" : "bg-gray-300"}`} />
+                                                <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white transition-colors ${user?.status === "online" ? "bg-green-500" : "bg-gray-300"}`} />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${priorityDot[meta?.priority] || 'bg-gray-300'}`} />
                                                     <p className={`text-sm truncate ${unread > 0 ? "font-bold text-gray-900" : "font-medium text-gray-700"}`}>{user?.name}</p>
-                                                    {lastMsg?.timestamp && <span className="text-[10px] text-gray-400 shrink-0 ml-2">{formatTime(lastMsg.timestamp)}</span>}
+                                                    {lastMsg?.timestamp && <span className="text-[10px] text-gray-400 shrink-0 ml-auto">{formatTime(lastMsg.timestamp)}</span>}
                                                 </div>
-                                                <div className="flex items-center justify-between mt-0.5">
+                                                <div className="flex items-center justify-between mt-0.5 pl-3">
                                                     <p className="text-xs text-gray-400 truncate pr-2">
                                                         {lastMsg?.isAutoReply ? "🤖 Auto-reply" : lastMsg?.isGif ? "🎞 GIF" : lastMsg?.fileUrl ? "📎 Attachment" : lastMsg?.text || <span className="italic">No messages yet</span>}
                                                     </p>
-                                                    {unread > 0 && <span className="shrink-0 min-w-[20px] h-5 px-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{unread > 99 ? "99+" : unread}</span>}
+                                                    {unread > 0 && <span className="shrink-0 min-w-[18px] h-[18px] px-1 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{unread > 99 ? "99+" : unread}</span>}
                                                 </div>
                                             </div>
                                         </button>
 
-                                        {/* ✅ Auto-Reply Toggle */}
                                         <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleAutoReply(user?.id);
-                                            }}
+                                            onClick={(e) => { e.stopPropagation(); toggleAutoReply(user?.id); }}
                                             className={`shrink-0 p-1.5 rounded-lg transition ${isAutoReplyOn ? "bg-violet-100 text-violet-600" : "text-gray-300 hover:text-gray-500 hover:bg-gray-100"}`}
                                             title={isAutoReplyOn ? "Auto-reply ON" : "Auto-reply OFF"}
                                         >
-                                            {isAutoReplyOn ? <Bot className="h-4 w-4" /> : <BotOff className="h-4 w-4" />}
+                                            {isAutoReplyOn ? <Bot className="h-3.5 w-3.5" /> : <BotOff className="h-3.5 w-3.5" />}
                                         </button>
                                     </div>
                                 );
@@ -630,14 +713,14 @@ const ChatPage = () => {
                     {selectedUser ? (
                         <>
                             {/* Chat Header */}
-                            <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0 shadow-sm">
+                            <div className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between shrink-0 shadow-sm">
                                 <div className="flex items-center gap-3">
                                     <button onClick={() => { setSelectedUser(null); setIsSidebarOpen(true); }} className="md:hidden p-1.5 -ml-1 rounded-lg hover:bg-gray-100">
                                         <ArrowLeft className="h-5 w-5 text-gray-600" />
                                     </button>
                                     <div className="relative shrink-0">
-                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center text-white text-sm font-bold">{getInitials(selectedUser.name)}</div>
-                                        <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${history.find((u) => u?.id === selectedUser?.id)?.status === "online" ? "bg-green-500" : "bg-gray-300"}`} />
+                                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white text-xs font-bold">{getInitials(selectedUser.name)}</div>
+                                        <span className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white ${history.find((u) => u?.id === selectedUser?.id)?.status === "online" ? "bg-green-500" : "bg-gray-300"}`} />
                                     </div>
                                     <div className="min-w-0">
                                         <h2 className="text-sm font-bold text-gray-900 truncate">{selectedUser.name}</h2>
@@ -647,229 +730,272 @@ const ChatPage = () => {
                                     </div>
                                 </div>
 
-                                {/* Auto-reply indicator in header */}
-                                {autoReplyUsers[selectedUser?.id] && (
-                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-violet-50 rounded-full">
-                                        <Bot className="h-3.5 w-3.5 text-violet-600" />
-                                        <span className="text-[11px] font-medium text-violet-600">Auto-Reply ON</span>
-                                    </div>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {/* Priority selector */}
+                                    <select
+                                        value={conversationMeta[selectedUser?.id]?.priority || 'medium'}
+                                        onChange={(e) => setPriority(e.target.value)}
+                                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 outline-none focus:border-indigo-300 cursor-pointer"
+                                    >
+                                        {priorityOptions.map((p) => (
+                                            <option key={p.value} value={p.value}>{p.label}</option>
+                                        ))}
+                                    </select>
+
+                                    {/* Resolve button */}
+                                    {conversationMeta[selectedUser?.id]?.status !== 'resolved' && (
+                                        <button
+                                            onClick={resolveConversation}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 transition border border-green-200"
+                                        >
+                                            <CheckCircle2 className="h-3.5 w-3.5" />
+                                            Resolve
+                                        </button>
+                                    )}
+                                    {conversationMeta[selectedUser?.id]?.status === 'resolved' && (
+                                        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-medium border border-green-200">
+                                            <CheckCircle2 className="h-3.5 w-3.5" /> Resolved
+                                        </span>
+                                    )}
+
+                                    {/* Auto-reply indicator */}
+                                    {autoReplyUsers[selectedUser?.id] && (
+                                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-violet-50 rounded-lg border border-violet-200">
+                                            <Bot className="h-3.5 w-3.5 text-violet-600" />
+                                            <span className="text-[11px] font-medium text-violet-600">Auto-Reply</span>
+                                        </div>
+                                    )}
+
+                                    {/* Customer info toggle */}
+                                    <button
+                                        onClick={() => setShowCustomerInfo(!showCustomerInfo)}
+                                        className={`p-2 rounded-lg transition ${showCustomerInfo ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}
+                                        title="Customer info"
+                                    >
+                                        <Info className="h-4 w-4" />
+                                    </button>
+                                </div>
                             </div>
 
-                            {/* Messages */}
-                            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-                                {chatMessages.length === 0 && (
-                                    <div className="flex flex-col items-center justify-center h-full text-center">
-                                        <div className="h-20 w-20 rounded-full bg-blue-50 flex items-center justify-center mb-4"><span className="text-3xl">💬</span></div>
-                                        <p className="text-sm font-medium text-gray-500">No messages yet</p>
-                                        <p className="text-xs text-gray-400 mt-1">Say hello to {selectedUser.name}!</p>
-                                    </div>
-                                )}
-                                {chatMessages.map((msg, index) => {
-                                    const isMe = msg?.sender?.id === userInfo?.user?.id;
-                                    const isAutoReply = msg?.message?.isAutoReply;
-                                    return (
-                                        <div key={index} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                                            <div className="max-w-[80%] sm:max-w-[65%]">
-                                                <div className={`px-4 py-2.5 rounded-2xl shadow-sm ${isAutoReply
-                                                    ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-md"
-                                                    : isMe
-                                                        ? "bg-blue-600 text-white rounded-br-md"
-                                                        : "bg-white text-gray-800 border border-gray-100 rounded-bl-md"
-                                                    }`}>
-                                                    {msg?.message?.fileUrl ? (
-                                                        msg?.message?.type === "image" ? (
-                                                            <img src={msg.message.fileUrl} alt="uploaded" className="max-w-full rounded-lg" />
-                                                        ) : (
-                                                            <video src={msg.message.fileUrl} controls className="max-w-full rounded-lg" />
-                                                        )
-                                                    ) : msg?.message?.isGif ? (
-                                                        <div dangerouslySetInnerHTML={{ __html: msg?.message?.text }} className="rounded-lg overflow-hidden" />
-                                                    ) : (
-                                                        <p className="text-sm leading-relaxed break-words">{msg?.message?.text}</p>
-                                                    )}
+                            {/* Chat + Info layout */}
+                            <div className="flex flex-1 overflow-hidden">
+                                {/* Messages area */}
+                                <div className="flex-1 flex flex-col min-w-0">
+                                    {/* Messages */}
+                                    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                                        {chatMessages.length === 0 && (
+                                            <div className="flex flex-col items-center justify-center h-full text-center">
+                                                <div className="h-16 w-16 rounded-full bg-indigo-50 flex items-center justify-center mb-4">
+                                                    <span className="text-2xl">💬</span>
                                                 </div>
-                                                <p className={`text-[10px] text-gray-400 mt-1 px-1 ${isMe ? "text-right" : "text-left"}`}>
-                                                    {isAutoReply && <span className="font-medium">🤖 Auto • </span>}
-                                                    {!isMe && !isAutoReply && <span className="font-medium">{msg?.sender?.name} • </span>}
-                                                    {formatTime(msg?.message?.timestamp)}
-                                                </p>
+                                                <p className="text-sm font-medium text-gray-500">No messages yet</p>
+                                                <p className="text-xs text-gray-400 mt-1">Start the conversation with {selectedUser.name}</p>
+                                            </div>
+                                        )}
+                                        {chatMessages.map((msg, index) => {
+                                            const isMe = msg?.sender?.id === userInfo?.user?.id;
+                                            const isAutoReply = msg?.message?.isAutoReply;
+                                            return (
+                                                <div key={index} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                                                    <div className="max-w-[80%] sm:max-w-[65%]">
+                                                        <div className={`px-4 py-2.5 rounded-2xl shadow-sm ${isAutoReply
+                                                            ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-br-md"
+                                                            : isMe
+                                                                ? "bg-indigo-600 text-white rounded-br-md"
+                                                                : "bg-white text-gray-800 border border-gray-100 rounded-bl-md"
+                                                            }`}>
+                                                            {msg?.message?.fileUrl ? (
+                                                                msg?.message?.type === "image" ? (
+                                                                    <img src={msg.message.fileUrl} alt="uploaded" className="max-w-full rounded-lg" />
+                                                                ) : (
+                                                                    <video src={msg.message.fileUrl} controls className="max-w-full rounded-lg" />
+                                                                )
+                                                            ) : msg?.message?.isGif ? (
+                                                                <div dangerouslySetInnerHTML={{ __html: msg?.message?.text }} className="rounded-lg overflow-hidden" />
+                                                            ) : (
+                                                                <p className="text-sm leading-relaxed break-words">{msg?.message?.text}</p>
+                                                            )}
+                                                        </div>
+                                                        <p className={`text-[10px] text-gray-400 mt-1 px-1 ${isMe ? "text-right" : "text-left"}`}>
+                                                            {isAutoReply && <span className="font-medium">🤖 Auto • </span>}
+                                                            {!isMe && !isAutoReply && <span className="font-medium">{msg?.sender?.name} • </span>}
+                                                            {formatTime(msg?.message?.timestamp)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        <div ref={messagesEndRef} />
+                                    </div>
+
+                                    {/* AI Suggestions Panel */}
+                                    {showSuggestions && (
+                                        <div className="bg-gradient-to-r from-violet-50 to-indigo-50 border-t border-violet-200 px-4 py-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Sparkles className="h-3.5 w-3.5 text-violet-600" />
+                                                    <span className="text-xs font-semibold text-violet-700">Smart Replies</span>
+                                                </div>
+                                                <button onClick={() => { setShowSuggestions(false); setSuggestions([]); }} className="p-0.5 rounded hover:bg-violet-100">
+                                                    <X className="h-3.5 w-3.5 text-violet-400" />
+                                                </button>
+                                            </div>
+                                            {loadingSuggestions ? (
+                                                <div className="flex items-center gap-2 py-2">
+                                                    <Loader2 className="h-4 w-4 text-violet-500 animate-spin" />
+                                                    <span className="text-xs text-violet-500">Generating suggestions...</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {suggestions.map((s, i) => (
+                                                        <button key={i} onClick={() => useSuggestion(s)} className="px-3 py-1.5 bg-white border border-violet-200 rounded-full text-xs text-gray-700 hover:bg-violet-100 hover:border-violet-300 active:scale-95 transition shadow-sm">
+                                                            {s}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Enhance Preview */}
+                                    {enhancedMessage && (
+                                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-t border-amber-200 px-4 py-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Wand2 className="h-3.5 w-3.5 text-amber-600" />
+                                                    <span className="text-xs font-semibold text-amber-700">Enhanced Version</span>
+                                                </div>
+                                                <button onClick={() => setEnhancedMessage("")} className="p-0.5 rounded hover:bg-amber-100">
+                                                    <X className="h-3.5 w-3.5 text-amber-400" />
+                                                </button>
+                                            </div>
+                                            <p className="text-sm text-gray-700 mb-2 bg-white rounded-lg px-3 py-2 border border-amber-200">{enhancedMessage}</p>
+                                            <div className="flex gap-2">
+                                                <button onClick={applyEnhanced} className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 active:scale-95 transition">
+                                                    Use This
+                                                </button>
+                                                <button onClick={() => setEnhancedMessage("")} className="px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium border border-gray-200 hover:bg-gray-50 transition">
+                                                    Keep Original
+                                                </button>
                                             </div>
                                         </div>
-                                    );
-                                })}
-                                <div ref={messagesEndRef} />
-                            </div>
+                                    )}
 
-                            {/* ✅ AI Suggestions Panel */}
-                            {showSuggestions && (
-                                <div className="bg-gradient-to-r from-violet-50 to-blue-50 border-t border-violet-200 px-4 py-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-1.5">
-                                            <Sparkles className="h-3.5 w-3.5 text-violet-600" />
-                                            <span className="text-xs font-semibold text-violet-700">AI Suggestions</span>
-                                        </div>
-                                        <button onClick={() => { setShowSuggestions(false); setSuggestions([]); }} className="p-0.5 rounded hover:bg-violet-100">
-                                            <X className="h-3.5 w-3.5 text-violet-400" />
-                                        </button>
-                                    </div>
-                                    {loadingSuggestions ? (
-                                        <div className="flex items-center gap-2 py-2">
-                                            <Loader2 className="h-4 w-4 text-violet-500 animate-spin" />
-                                            <span className="text-xs text-violet-500">Generating suggestions...</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-wrap gap-2">
-                                            {suggestions.map((s, i) => (
-                                                <button
-                                                    key={i}
-                                                    onClick={() => useSuggestion(s)}
-                                                    className="px-3 py-1.5 bg-white border border-violet-200 rounded-full text-xs text-gray-700 hover:bg-violet-100 hover:border-violet-300 active:scale-95 transition shadow-sm"
-                                                >
-                                                    {s}
+                                    {/* Enhance Style Menu */}
+                                    {showEnhanceMenu && !enhancedMessage && (
+                                        <div className="bg-white border-t border-gray-200 px-4 py-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Wand2 className="h-3.5 w-3.5 text-gray-600" />
+                                                    <span className="text-xs font-semibold text-gray-600">Choose tone</span>
+                                                </div>
+                                                <button onClick={() => setShowEnhanceMenu(false)} className="p-0.5 rounded hover:bg-gray-100">
+                                                    <X className="h-3.5 w-3.5 text-gray-400" />
                                                 </button>
-                                            ))}
+                                            </div>
+                                            {loadingEnhance ? (
+                                                <div className="flex items-center gap-2 py-2">
+                                                    <Loader2 className="h-4 w-4 text-indigo-500 animate-spin" />
+                                                    <span className="text-xs text-indigo-500">Enhancing your message...</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {enhanceStyles.map((style) => (
+                                                        <button key={style.value} onClick={() => enhanceMessage(style.value)} className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-xs text-gray-700 hover:bg-indigo-50 hover:border-indigo-300 active:scale-95 transition">
+                                                            {style.icon} {style.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                </div>
-                            )}
 
-                            {/* ✅ Enhance Preview */}
-                            {enhancedMessage && (
-                                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-t border-amber-200 px-4 py-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-1.5">
-                                            <Wand2 className="h-3.5 w-3.5 text-amber-600" />
-                                            <span className="text-xs font-semibold text-amber-700">Enhanced Version</span>
-                                        </div>
-                                        <button onClick={() => setEnhancedMessage("")} className="p-0.5 rounded hover:bg-amber-100">
-                                            <X className="h-3.5 w-3.5 text-amber-400" />
-                                        </button>
-                                    </div>
-                                    <p className="text-sm text-gray-700 mb-2 bg-white rounded-lg px-3 py-2 border border-amber-200">{enhancedMessage}</p>
-                                    <div className="flex gap-2">
-                                        <button onClick={applyEnhanced} className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 active:scale-95 transition">
-                                            Use This
-                                        </button>
-                                        <button onClick={() => setEnhancedMessage("")} className="px-3 py-1.5 bg-white text-gray-600 rounded-lg text-xs font-medium border border-gray-200 hover:bg-gray-50 transition">
-                                            Keep Original
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ✅ Enhance Style Menu */}
-                            {showEnhanceMenu && !enhancedMessage && (
-                                <div className="bg-white border-t border-gray-200 px-4 py-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-1.5">
-                                            <Wand2 className="h-3.5 w-3.5 text-gray-600" />
-                                            <span className="text-xs font-semibold text-gray-600">Choose a style</span>
-                                        </div>
-                                        <button onClick={() => setShowEnhanceMenu(false)} className="p-0.5 rounded hover:bg-gray-100">
-                                            <X className="h-3.5 w-3.5 text-gray-400" />
-                                        </button>
-                                    </div>
-                                    {loadingEnhance ? (
-                                        <div className="flex items-center gap-2 py-2">
-                                            <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
-                                            <span className="text-xs text-blue-500">Enhancing your message...</span>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-wrap gap-2">
-                                            {enhanceStyles.map((style) => (
-                                                <button
-                                                    key={style.value}
-                                                    onClick={() => enhanceMessage(style.value)}
-                                                    className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-xs text-gray-700 hover:bg-blue-50 hover:border-blue-300 active:scale-95 transition"
-                                                >
-                                                    {style.icon} {style.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Input Bar */}
-                            <div className="bg-white border-t border-gray-200 px-3 py-3 shrink-0">
-                                <div className="flex items-end gap-2">
-                                    {/* Attach */}
-                                    <button onClick={() => fileInputRef.current?.click()} className="shrink-0 p-2.5 rounded-full text-gray-500 hover:bg-gray-100 hover:text-blue-600 active:bg-gray-200 transition">
-                                        <Paperclip className="h-5 w-5" />
-                                    </button>
-                                    <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => { const file = e.target.files[0]; if (file) handleSend(file); e.target.value = ""; }} />
-
-                                    {/* ✅ AI Suggestions Button */}
-                                    <button
-                                        onClick={getSuggestions}
-                                        disabled={loadingSuggestions}
-                                        className="shrink-0 p-2.5 rounded-full text-gray-500 hover:bg-violet-50 hover:text-violet-600 active:bg-violet-100 transition"
-                                        title="AI Suggestions"
-                                    >
-                                        {loadingSuggestions ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
-                                    </button>
-
-                                    {/* Text Input */}
-                                    <div className="flex-1 flex items-end bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-400/20 transition">
-                                        <textarea
-                                            placeholder="Type a message..."
-                                            value={message}
-                                            onChange={(e) => setMessage(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter" && !e.shiftKey && message.trim() !== "") {
-                                                    e.preventDefault();
-                                                    handleSend();
-                                                }
-                                            }}
-                                            rows={1}
-                                            className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none resize-none max-h-32"
-                                            style={{ height: "auto", minHeight: "20px" }}
-                                            onInput={(e) => {
-                                                e.target.style.height = "auto";
-                                                e.target.style.height = Math.min(e.target.scrollHeight, 128) + "px";
-                                            }}
+                                    {/* Canned Responses */}
+                                    {showCannedResponses && (
+                                        <CannedResponses
+                                            onSelect={(text) => { setMessage(text); setShowCannedResponses(false); }}
+                                            onClose={() => setShowCannedResponses(false)}
                                         />
+                                    )}
+
+                                    {/* Input Bar */}
+                                    <div className="bg-white border-t border-gray-200 px-3 py-2.5 shrink-0">
+                                        <div className="flex items-end gap-2">
+                                            {/* Attach */}
+                                            <button onClick={() => fileInputRef.current?.click()} className="shrink-0 p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-indigo-600 active:bg-gray-200 transition">
+                                                <Paperclip className="h-5 w-5" />
+                                            </button>
+                                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={(e) => { if (e.target.files[0]) handleSend(e.target.files[0]); e.target.value = ""; }} />
+
+                                            {/* Canned responses */}
+                                            <button onClick={() => setShowCannedResponses(!showCannedResponses)} className={`shrink-0 p-2 rounded-full transition ${showCannedResponses ? 'bg-amber-50 text-amber-600' : 'text-gray-400 hover:bg-gray-100 hover:text-amber-600'}`} title="Quick replies">
+                                                <Zap className="h-5 w-5" />
+                                            </button>
+
+                                            {/* Message input */}
+                                            <div className="flex-1 flex items-end bg-gray-50 rounded-2xl border border-gray-200 px-3 py-2 focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-400 transition">
+                                                <textarea
+                                                    rows={1}
+                                                    value={message}
+                                                    onChange={(e) => setMessage(e.target.value)}
+                                                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                                                    placeholder="Type a reply..."
+                                                    className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none resize-none max-h-32"
+                                                    style={{ minHeight: "24px" }}
+                                                />
+                                            </div>
+
+                                            {/* AI buttons */}
+                                            <button onClick={getSuggestions} className="shrink-0 p-2 rounded-full text-gray-400 hover:bg-violet-50 hover:text-violet-600 transition" title="Smart replies">
+                                                <Sparkles className="h-5 w-5" />
+                                            </button>
+                                            <button onClick={() => { if (message.trim()) setShowEnhanceMenu(!showEnhanceMenu); }} className={`shrink-0 p-2 rounded-full transition ${showEnhanceMenu && message.trim() ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:bg-gray-100 hover:text-indigo-600'}`} title="Enhance message">
+                                                <Wand2 className="h-5 w-5" />
+                                            </button>
+
+                                            {/* Voice */}
+                                            {browserSupportsSpeechRecognition && (
+                                                <button
+                                                    onClick={() => listening ? SpeechRecognition.stopListening() : SpeechRecognition.startListening({ continuous: true })}
+                                                    className={`shrink-0 p-2 rounded-full transition ${listening ? "bg-red-50 text-red-500" : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"}`}
+                                                    title={listening ? "Stop recording" : "Voice input"}
+                                                >
+                                                    {listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                                                </button>
+                                            )}
+
+                                            {/* Send */}
+                                            <button
+                                                onClick={() => handleSend()}
+                                                disabled={!message.trim()}
+                                                className="shrink-0 p-2.5 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                                            >
+                                                <Send className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </div>
-
-                                    {/* ✅ Enhance Button */}
-                                    {message.trim() && (
-                                        <button
-                                            onClick={() => setShowEnhanceMenu(!showEnhanceMenu)}
-                                            className="shrink-0 p-2.5 rounded-full text-gray-500 hover:bg-amber-50 hover:text-amber-600 active:bg-amber-100 transition"
-                                            title="Enhance Message"
-                                        >
-                                            <Wand2 className="h-5 w-5" />
-                                        </button>
-                                    )}
-
-                                    {/* Mic */}
-                                    {browserSupportsSpeechRecognition && (
-                                        <button
-                                            onClick={() => { if (listening) SpeechRecognition.stopListening(); else SpeechRecognition.startListening({ continuous: true }); }}
-                                            className={`shrink-0 p-2.5 rounded-full transition ${listening ? "bg-red-100 text-red-600 animate-pulse" : "text-gray-500 hover:bg-gray-100 hover:text-blue-600"}`}
-                                        >
-                                            {listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                                        </button>
-                                    )}
-
-                                    {/* Send */}
-                                    <button
-                                        onClick={() => handleSend()}
-                                        disabled={message.trim() === ""}
-                                        className={`shrink-0 p-2.5 rounded-full transition shadow-sm ${message.trim() ? "bg-blue-600 text-white hover:bg-blue-700 active:scale-95" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
-                                    >
-                                        <Send className="h-5 w-5" />
-                                    </button>
                                 </div>
+
+                                {/* Customer Info Panel */}
+                                {showCustomerInfo && (
+                                    <CustomerInfoPanel
+                                        customer={selectedUser}
+                                        conversationMeta={conversationMeta[selectedUser?.id]}
+                                        onClose={() => setShowCustomerInfo(false)}
+                                    />
+                                )}
                             </div>
                         </>
                     ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-                            <div className="h-24 w-24 rounded-full bg-gradient-to-br from-blue-100 to-violet-100 flex items-center justify-center mb-6"><span className="text-5xl">💬</span></div>
-                            <h2 className="text-xl font-bold text-gray-800 mb-2">Welcome to TOX</h2>
-                            <p className="text-sm text-gray-400 max-w-sm">Select a conversation from the sidebar or search for someone to start chatting.</p>
-                            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden mt-6 px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-full hover:bg-blue-700 active:scale-95 transition shadow">Open Chats</button>
+                        /* Empty state */
+                        <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+                            <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center mb-6">
+                                <Headphones className="h-12 w-12 text-indigo-400" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-800 mb-2">Welcome to HelpWave</h2>
+                            <p className="text-sm text-gray-400 max-w-sm">
+                                Select a conversation from the sidebar to start helping your customers, or wait for new incoming chats.
+                            </p>
                         </div>
                     )}
                 </main>

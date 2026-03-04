@@ -127,7 +127,7 @@ export default function ProfilePage() {
                 </button>
 
                 <h1 className="text-base font-bold text-gray-800 dark:text-white">
-                    Edit Profile
+                    Agent Profile
                 </h1>
 
                 <button
